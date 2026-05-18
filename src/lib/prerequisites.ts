@@ -15,12 +15,25 @@ export type RequirementType =
   | 'completed_hp_in_course'
   | 'completed_hp_in_subject'
   | 'completed_total_hp'
+  | 'completed_hp_in_program_group'
+  | 'completed_hp_in_course_group'
+  | 'completed_hp_at_level'
   | 'custom_text';
+
+export type GroupOperator = 'AND' | 'OR';
 
 export interface BaseRequirement {
   type: RequirementType;
   /** Optional admin-supplied label shown verbatim instead of generated text. */
   label?: string;
+  /** Logical grouping for alternative requirements. Rows sharing the same
+   *  logicGroup are combined with `groupOperator` (default AND). */
+  logicGroup?: number | null;
+  groupOperator?: GroupOperator | null;
+  /** When true, treat as informational only — never block automatically. */
+  manualReview?: boolean;
+  /** Original prerequisite text snippet for display alongside structured rule. */
+  originalText?: string;
 }
 
 export interface CompletedCourseRequirement extends BaseRequirement {
@@ -45,6 +58,28 @@ export interface CompletedTotalHpRequirement extends BaseRequirement {
   type: 'completed_total_hp';
   hp: number;
 }
+export interface CompletedHpInProgramGroupRequirement extends BaseRequirement {
+  type: 'completed_hp_in_program_group';
+  hp: number;
+  /** Allowed program names/categories, e.g. ["Maskinteknik", "Industriell ekonomi"]. */
+  allowedProgramGroups: string[];
+}
+export interface CompletedHpInCourseGroupRequirement extends BaseRequirement {
+  type: 'completed_hp_in_course_group';
+  hp: number;
+  /** Human label for the group, e.g. "CAD/Datorstöd för ingenjörsarbete". */
+  groupName: string;
+  /** Optional explicit course codes that fulfill the group. */
+  allowedCourseCodes?: string[];
+  /** Optional huvudområden whose courses count toward the group. */
+  allowedSubjectAreas?: string[];
+}
+export interface CompletedHpAtLevelRequirement extends BaseRequirement {
+  type: 'completed_hp_at_level';
+  hp: number;
+  /** Course level token, e.g. "advanced" / "A1N". */
+  level: string;
+}
 export interface CustomTextRequirement extends BaseRequirement {
   type: 'custom_text';
   text: string;
@@ -58,6 +93,9 @@ export type CourseRequirement =
   | CompletedHpInCourseRequirement
   | CompletedHpInSubjectRequirement
   | CompletedTotalHpRequirement
+  | CompletedHpInProgramGroupRequirement
+  | CompletedHpInCourseGroupRequirement
+  | CompletedHpAtLevelRequirement
   | CustomTextRequirement;
 
 export const REQUIREMENT_TYPE_LABEL: Record<RequirementType, string> = {
@@ -66,6 +104,9 @@ export const REQUIREMENT_TYPE_LABEL: Record<RequirementType, string> = {
   completed_hp_in_course: 'Avklarade HP i kurs',
   completed_hp_in_subject: 'Avklarade HP inom huvudområde',
   completed_total_hp: 'Totalt avklarade HP',
+  completed_hp_in_program_group: 'Avklarade HP inom programgrupp',
+  completed_hp_in_course_group: 'Avklarade HP inom kursgrupp',
+  completed_hp_at_level: 'Avklarade HP på nivå',
   custom_text: 'Manuellt krav',
 };
 
@@ -299,11 +340,76 @@ export function evaluateRequirement(
         progress: { current: have, required: req.hp },
       };
     }
-    case 'custom_text': {
+    case 'completed_hp_in_program_group': {
+      // Cannot be evaluated reliably without program-group data — informational.
+      const groups = (req.allowedProgramGroups || []).join(', ') || 'angiven programgrupp';
       return {
         requirement: req,
-        fulfilled: !req.blocking,
-        severity: req.blocking ? 'hard' : 'met',
+        fulfilled: true,
+        severity: 'met',
+        message: `Manuellt krav: minst ${req.hp} HP från ${groups}`,
+      };
+    }
+    case 'completed_hp_in_course_group': {
+      // Evaluate when explicit course codes or subject areas are known.
+      const codes = new Set((req.allowedCourseCodes || []).map((c) => c.toUpperCase()));
+      const subjects = (req.allowedSubjectAreas || []).map((s) => s.toLowerCase());
+      const canEvaluate = !req.manualReview && (codes.size > 0 || subjects.length > 0);
+      if (!canEvaluate) {
+        return {
+          requirement: req,
+          fulfilled: true,
+          severity: 'met',
+          message: `Manuellt krav: minst ${req.hp} HP inom ${req.groupName || 'kursgrupp'}`,
+        };
+      }
+      let have = 0;
+      const accounted = new Set<string>();
+      for (const c of ctx.courses) {
+        const codeMatch = codes.has(c.course_code.toUpperCase());
+        const subjMatch = subjects.length > 0 && subjects.includes(
+          (primarySubject(c.subject || resolveSubject(c.course_code).primary) || '').toLowerCase(),
+        );
+        if ((codeMatch || subjMatch) && c.status === 'completed') {
+          have += Number(c.hp) || 0;
+          accounted.add(c.course_code);
+        }
+      }
+      for (const s of ctx.subtasks || []) {
+        if (!s.completed || accounted.has(s.course_code)) continue;
+        const course = ctx.courses.find((x) => x.course_code === s.course_code);
+        const codeMatch = codes.has(s.course_code.toUpperCase());
+        const subjMatch = subjects.length > 0 && subjects.includes(
+          (primarySubject(course?.subject || resolveSubject(s.course_code).primary) || '').toLowerCase(),
+        );
+        if (codeMatch || subjMatch) have += Number(s.hp) || 0;
+      }
+      const met = have + 1e-6 >= req.hp;
+      return {
+        requirement: req,
+        fulfilled: met,
+        severity: met ? 'met' : have > 0 ? 'soft' : 'hard',
+        message: met
+          ? `Minst ${req.hp} HP klart inom ${req.groupName || 'kursgrupp'}`
+          : `Kräver minst ${req.hp} HP inom ${req.groupName || 'kursgrupp'}`,
+        progress: { current: have, required: req.hp },
+      };
+    }
+    case 'completed_hp_at_level': {
+      // No course-level data on EvalCourse yet — informational only.
+      return {
+        requirement: req,
+        fulfilled: true,
+        severity: 'met',
+        message: `Manuellt krav: minst ${req.hp} HP på nivå ${req.level || 'angiven'}`,
+      };
+    }
+    case 'custom_text': {
+      const isManual = req.manualReview || !req.blocking;
+      return {
+        requirement: req,
+        fulfilled: isManual,
+        severity: isManual ? 'met' : 'hard',
         message: `Manuellt krav: ${req.text}`,
       };
     }

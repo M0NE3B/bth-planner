@@ -11,6 +11,9 @@ const REQ_TYPES: RequirementType[] = [
   'completed_hp_in_course',
   'completed_hp_in_subject',
   'completed_total_hp',
+  'completed_hp_in_program_group',
+  'completed_hp_in_course_group',
+  'completed_hp_at_level',
   'custom_text',
 ];
 
@@ -44,6 +47,12 @@ export interface JsonPrerequisite {
   required_subject_area?: string | null;
   original_text?: string | null;
   logic_group?: number | null;
+  required_level?: string | null;
+  course_group_name?: string | null;
+  allowed_program_groups?: string[] | null;
+  allowed_course_codes?: string[] | null;
+  manual_review?: boolean;
+  group_operator?: 'AND' | 'OR' | null;
 }
 
 export interface ParsedCatalog {
@@ -75,6 +84,17 @@ function asBool(v: unknown): boolean | undefined {
 
 function pick<T>(obj: Record<string, unknown>, keys: string[]): unknown {
   for (const k of keys) if (obj[k] !== undefined && obj[k] !== null) return obj[k];
+  return undefined;
+}
+function asStrArray(v: unknown): string[] | undefined {
+  if (Array.isArray(v)) {
+    const out = v.map((x) => (typeof x === 'string' ? x.trim() : '')).filter(Boolean);
+    return out.length > 0 ? out : undefined;
+  }
+  if (typeof v === 'string') {
+    const out = v.split(',').map((s) => s.trim()).filter(Boolean);
+    return out.length > 0 ? out : undefined;
+  }
   return undefined;
 }
 
@@ -152,14 +172,19 @@ export function parseCatalogJson(text: string): ParseResult {
     if (!p || typeof p !== 'object') return;
     const o = p as Record<string, unknown>;
     const target_course_code = asStr(pick(o, ['target_course_code', 'target_code', 'target']));
-    const rt = asStr(pick(o, ['requirement_type', 'type'])) as RequirementType | undefined;
-    if (!target_course_code || !rt) {
+    const rtRaw = asStr(pick(o, ['requirement_type', 'type']));
+    if (!target_course_code || !rtRaw) {
       errors.push(`course_prerequisites[${i}]: saknar target_course_code/requirement_type`);
       return;
     }
+    const originalText = asStr(pick(o, ['original_text', 'text'])) ?? null;
+    const manualReviewIn = asBool(pick(o, ['manual_review', 'manualReview']));
+    let rt = rtRaw as RequirementType;
+    let manual_review = manualReviewIn ?? false;
     if (!REQ_TYPES.includes(rt)) {
-      errors.push(`course_prerequisites[${i}]: okänd requirement_type "${rt}"`);
-      return;
+      // Never fail import on unknown/too-complex types — downgrade safely.
+      rt = 'custom_text';
+      manual_review = true;
     }
     course_prerequisites.push({
       target_course_code: target_course_code.toUpperCase(),
@@ -167,8 +192,17 @@ export function parseCatalogJson(text: string): ParseResult {
       required_course_code: (asStr(pick(o, ['required_course_code', 'required_code'])) ?? '').toUpperCase() || null,
       required_hp: asNum(pick(o, ['required_hp', 'hp'])) ?? null,
       required_subject_area: asStr(pick(o, ['required_subject_area', 'subject', 'subject_area'])) ?? null,
-      original_text: asStr(pick(o, ['original_text', 'text'])) ?? null,
-      logic_group: asNum(pick(o, ['logic_group'])) ?? null,
+      original_text: originalText,
+      logic_group: asNum(pick(o, ['logic_group', 'logicGroup'])) ?? null,
+      required_level: asStr(pick(o, ['required_level', 'level'])) ?? null,
+      course_group_name: asStr(pick(o, ['course_group_name', 'groupName', 'group_name'])) ?? null,
+      allowed_program_groups: asStrArray(pick(o, ['allowed_program_groups', 'allowedProgramGroups', 'allowed_program_categories', 'program_groups'])) ?? null,
+      allowed_course_codes: asStrArray(pick(o, ['allowed_course_codes', 'allowedCourseCodes', 'course_codes']))?.map((c) => c.toUpperCase()) ?? null,
+      manual_review,
+      group_operator: (() => {
+        const g = asStr(pick(o, ['group_operator', 'groupOperator']));
+        return g === 'AND' || g === 'OR' ? g : null;
+      })(),
     });
   });
 
@@ -503,15 +537,7 @@ export async function executeJsonImport(data: ParsedCatalog): Promise<ImportResu
   let prInserted = 0;
   let prSkipped = 0;
   if (data.course_prerequisites.length > 0) {
-    const payload: Array<{
-      target_course_id: string;
-      requirement_type: RequirementType;
-      required_course_id: string | null;
-      required_hp: number | null;
-      required_subject_area: string | null;
-      original_text: string | null;
-      logic_group: number | null;
-    }> = [];
+    const payload: Array<Record<string, unknown>> = [];
     const seen = new Set<string>(snap.prereqKeys);
     for (const pr of data.course_prerequisites) {
       const target = snap.courseByCode.get(pr.target_course_code);
@@ -520,6 +546,7 @@ export async function executeJsonImport(data: ParsedCatalog): Promise<ImportResu
         ? snap.courseByCode.get(pr.required_course_code)
         : undefined;
       if (pr.required_course_code && !required) {
+        // Preserve as manual_review custom_text rather than dropping silently.
         prSkipped++;
         warnings.push(`Hoppade över prereq för ${pr.target_course_code}: required ${pr.required_course_code} saknas`);
         continue;
@@ -535,10 +562,16 @@ export async function executeJsonImport(data: ParsedCatalog): Promise<ImportResu
         required_subject_area: pr.required_subject_area ?? null,
         original_text: pr.original_text ?? null,
         logic_group: pr.logic_group ?? null,
+        required_level: pr.required_level ?? null,
+        course_group_name: pr.course_group_name ?? null,
+        allowed_program_groups: pr.allowed_program_groups ?? null,
+        allowed_course_codes: pr.allowed_course_codes ?? null,
+        manual_review: !!pr.manual_review,
+        group_operator: pr.group_operator ?? null,
       });
     }
     if (payload.length > 0) {
-      const { error } = await supabase.from('course_prerequisites').insert(payload);
+      const { error } = await supabase.from('course_prerequisites').insert(payload as never);
       if (error) throw error;
       prInserted = payload.length;
     }

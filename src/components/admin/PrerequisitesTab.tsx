@@ -21,6 +21,9 @@ const TYPES: { value: RequirementType | 'all'; label: string }[] = [
   { value: 'completed_hp_in_course', label: 'HP i kurs' },
   { value: 'completed_hp_in_subject', label: 'HP i huvudområde' },
   { value: 'completed_total_hp', label: 'Total HP' },
+  { value: 'completed_hp_in_program_group', label: 'HP i programgrupp' },
+  { value: 'completed_hp_in_course_group', label: 'HP i kursgrupp' },
+  { value: 'completed_hp_at_level', label: 'HP på nivå' },
   { value: 'custom_text', label: 'Fritext' },
 ];
 
@@ -32,6 +35,7 @@ export default function PrerequisitesTab() {
   const [type, setType] = useState<RequirementType | 'all'>('all');
   const [onlyMissing, setOnlyMissing] = useState(false);
   const [onlyCustom, setOnlyCustom] = useState(false);
+  const [onlyManual, setOnlyManual] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -53,6 +57,7 @@ export default function PrerequisitesTab() {
     return rows.filter((r) => {
       if (type !== 'all' && r.requirement_type !== type) return false;
       if (onlyCustom && r.requirement_type !== 'custom_text') return false;
+      if (onlyManual && !r.manual_review) return false;
       if (onlyMissing) {
         const needsCourse = r.requirement_type === 'completed_course'
           || r.requirement_type === 'attended_course'
@@ -69,7 +74,7 @@ export default function PrerequisitesTab() {
       }
       return true;
     });
-  }, [rows, courseById, search, type, onlyMissing, onlyCustom]);
+  }, [rows, courseById, search, type, onlyMissing, onlyCustom, onlyManual]);
 
   return (
     <div className="space-y-3">
@@ -95,6 +100,10 @@ export default function PrerequisitesTab() {
         <div className="flex items-center gap-2 px-2">
           <Switch id="only-missing" checked={onlyMissing} onCheckedChange={setOnlyMissing} />
           <Label htmlFor="only-missing" className="text-sm">Endast saknade</Label>
+        </div>
+        <div className="flex items-center gap-2 px-2">
+          <Switch id="only-manual" checked={onlyManual} onCheckedChange={setOnlyManual} />
+          <Label htmlFor="only-manual" className="text-sm">Endast manuella</Label>
         </div>
       </div>
 
