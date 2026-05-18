@@ -108,6 +108,22 @@ export default function JsonImportCard() {
         {plan && (
           <div className="space-y-3">
             <PlanSummary plan={plan} />
+            {plan.program_courses.repeated.length > 0 && (
+              <WarningList
+                title={`Valbara kurser i flera platser (${plan.program_courses.repeated.length}) — importeras som separata rader`}
+                items={plan.program_courses.repeated.slice(0, 30).map(
+                  (pc) => `${pc.course_code} → ${pc.program_name} (år ${pc.year}, ${pc.semester ?? '-'}, period ${pc.period ?? '-'}, ${pc.mandatory ? 'oblig.' : 'valbar'})`,
+                )}
+              />
+            )}
+            {plan.program_courses.duplicates.length > 0 && (
+              <WarningList
+                title={`Exakta dubbletter i program-kurs-länkar (${plan.program_courses.duplicates.length}) — hoppas över`}
+                items={plan.program_courses.duplicates.slice(0, 30).map(
+                  (pc) => `${pc.course_code} → ${pc.program_name} (år ${pc.year}, ${pc.semester ?? '-'}, period ${pc.period ?? '-'}, ${pc.mandatory ? 'oblig.' : 'valbar'})`,
+                )}
+              />
+            )}
             {plan.warnings.length > 0 && <WarningList title="Varningar" items={plan.warnings} />}
             {plan.prerequisites.manual.length > 0 && (
               <WarningList
