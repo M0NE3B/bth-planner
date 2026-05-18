@@ -3,6 +3,7 @@ import { ShieldCheck } from 'lucide-react';
 import CourseCatalogTab from './CourseCatalogTab';
 import ProgramsTab from './ProgramsTab';
 import ImportTab from './ImportTab';
+import AdminsTab from './AdminsTab';
 
 export default function AdminPanel() {
   return (
@@ -15,10 +16,11 @@ export default function AdminPanel() {
         Hantera kurskatalogen, program och förkunskapskrav. Endast administratörer ser denna sektion.
       </p>
       <Tabs defaultValue="courses" className="w-full">
-        <TabsList className="grid grid-cols-3 w-full">
+        <TabsList className="grid grid-cols-4 w-full">
           <TabsTrigger value="courses">Kurskatalog</TabsTrigger>
           <TabsTrigger value="programs">Program</TabsTrigger>
           <TabsTrigger value="import">Import & verktyg</TabsTrigger>
+          <TabsTrigger value="admins">Administratörer</TabsTrigger>
         </TabsList>
         <TabsContent value="courses" className="mt-4">
           <CourseCatalogTab />
@@ -28,6 +30,9 @@ export default function AdminPanel() {
         </TabsContent>
         <TabsContent value="import" className="mt-4">
           <ImportTab />
+        </TabsContent>
+        <TabsContent value="admins" className="mt-4">
+          <AdminsTab />
         </TabsContent>
       </Tabs>
     </div>

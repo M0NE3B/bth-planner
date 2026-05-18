@@ -646,6 +646,7 @@ export type Database = {
       }
     }
     Functions: {
+      grant_admin_by_email: { Args: { _email: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -654,10 +655,20 @@ export type Database = {
         Returns: boolean
       }
       is_user_visible: { Args: { _uid: string }; Returns: boolean }
+      list_admins: {
+        Args: never
+        Returns: {
+          created_at: string
+          display_name: string
+          email: string
+          user_id: string
+        }[]
+      }
       order_is_unlocked: {
         Args: { _order_id: string; _uid: string }
         Returns: boolean
       }
+      revoke_admin: { Args: { _user_id: string }; Returns: undefined }
       user_has_course: {
         Args: { _code: string; _uid: string }
         Returns: boolean
