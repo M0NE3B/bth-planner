@@ -221,11 +221,19 @@ export interface DbSnapshot {
     subject_area: string | null; level: string | null;
     original_prerequisite_text: string | null;
   }>;
-  programCourseByPair: Map<string, {
+  programCourseByPlacement: Map<string, {
     id: string; year: number; semester: string | null; period: string | null;
     mandatory: boolean; sort_order: number;
   }>;
   prereqKeys: Set<string>;
+}
+
+/** Placement key — matches DB unique index program_courses_placement_uniq. */
+function placementKey(
+  programId: string, courseId: string,
+  year: number, semester: string | null, period: string | null, mandatory: boolean,
+): string {
+  return [programId, courseId, year, semester ?? '', period ?? '', mandatory ? '1' : '0'].join('|');
 }
 
 function prereqKey(
@@ -273,7 +281,7 @@ export async function fetchDbSnapshot(): Promise<DbSnapshot> {
       original_prerequisite_text: row.original_prerequisite_text,
     });
   }
-  const programCourseByPair = new Map<string, {
+  const programCourseByPlacement = new Map<string, {
     id: string; year: number; semester: string | null; period: string | null;
     mandatory: boolean; sort_order: number;
   }>();
@@ -282,7 +290,8 @@ export async function fetchDbSnapshot(): Promise<DbSnapshot> {
     year: number; semester: string | null; period: string | null;
     mandatory: boolean; sort_order: number;
   }>) {
-    programCourseByPair.set(`${row.program_id}|${row.course_id}`, {
+    const k = placementKey(row.program_id, row.course_id, row.year, row.semester, row.period, row.mandatory);
+    programCourseByPlacement.set(k, {
       id: row.id, year: row.year, semester: row.semester, period: row.period,
       mandatory: row.mandatory, sort_order: row.sort_order,
     });
@@ -298,7 +307,7 @@ export async function fetchDbSnapshot(): Promise<DbSnapshot> {
       row.required_subject_area, row.required_hp, row.original_text,
     ));
   }
-  return { programByName, courseByCode, programCourseByPair, prereqKeys };
+  return { programByName, courseByCode, programCourseByPlacement, prereqKeys };
 }
 
 // ---------- Plan ----------
@@ -306,7 +315,13 @@ export async function fetchDbSnapshot(): Promise<DbSnapshot> {
 export interface ImportPlan {
   programs: { insert: JsonProgram[]; update: JsonProgram[]; unchanged: JsonProgram[] };
   courses: { insert: JsonCourse[]; update: JsonCourse[]; unchanged: JsonCourse[] };
-  program_courses: { insert: JsonProgramCourse[]; update: JsonProgramCourse[]; unchanged: JsonProgramCourse[] };
+  program_courses: {
+    insert: JsonProgramCourse[];
+    update: JsonProgramCourse[];
+    unchanged: JsonProgramCourse[];
+    duplicates: JsonProgramCourse[];
+    repeated: JsonProgramCourse[];
+  };
   prerequisites: { insert: JsonPrerequisite[]; duplicates: JsonPrerequisite[]; manual: JsonPrerequisite[] };
   warnings: string[];
   errors: string[];
@@ -363,8 +378,18 @@ export function planJsonImport(data: ParsedCatalog, snap: DbSnapshot): ImportPla
   ]);
 
   // ---- program_courses ----
-  const program_courses = { insert: [] as JsonProgramCourse[], update: [] as JsonProgramCourse[], unchanged: [] as JsonProgramCourse[] };
-  const seenPair = new Set<string>();
+  // Uniqueness is placement-based (program + course + year + semester + period + mandatory).
+  // The same course in different placements (e.g. an elective offered across several
+  // years/periods) is kept as separate rows. Only fully identical placements are duplicates.
+  const program_courses = {
+    insert: [] as JsonProgramCourse[],
+    update: [] as JsonProgramCourse[],
+    unchanged: [] as JsonProgramCourse[],
+    duplicates: [] as JsonProgramCourse[],
+    repeated: [] as JsonProgramCourse[],
+  };
+  const seenPlacement = new Set<string>();
+  const seenPairCount = new Map<string, number>();
   for (const pc of data.program_courses) {
     if (!knownProgramNames.has(pc.program_name)) {
       warnings.push(`program_courses: okänt program "${pc.program_name}"`); continue;
@@ -372,31 +397,44 @@ export function planJsonImport(data: ParsedCatalog, snap: DbSnapshot): ImportPla
     if (!knownCourseCodes.has(pc.course_code)) {
       warnings.push(`program_courses: okänd kurskod "${pc.course_code}"`); continue;
     }
-    const pairKey = `${pc.program_name}|${pc.course_code}`;
-    if (seenPair.has(pairKey)) {
-      warnings.push(`program_courses: dubblett ${pairKey}`); continue;
-    }
-    seenPair.add(pairKey);
 
-    const programId = snap.programByName.get(pc.program_name)?.id;
-    const courseId = snap.courseByCode.get(pc.course_code)?.id;
-    if (!programId || !courseId) {
-      // Will be inserted post-program/course upsert
+    const pairKey = `${pc.program_name}|${pc.course_code}`;
+    const programId = snap.programByName.get(pc.program_name)?.id ?? `new:${pc.program_name}`;
+    const courseId = snap.courseByCode.get(pc.course_code)?.id ?? `new:${pc.course_code}`;
+    const placeKey = placementKey(
+      programId, courseId, pc.year, pc.semester ?? null, pc.period ?? null, pc.mandatory ?? true,
+    );
+
+    if (seenPlacement.has(placeKey)) {
+      // Exact duplicate within the file — all placement fields identical.
+      program_courses.duplicates.push(pc);
+      continue;
+    }
+    seenPlacement.add(placeKey);
+
+    // Track repeated optional courses (same program+course, different placement).
+    const prev = seenPairCount.get(pairKey) ?? 0;
+    if (prev >= 1) program_courses.repeated.push(pc);
+    seenPairCount.set(pairKey, prev + 1);
+
+    if (programId.startsWith('new:') || courseId.startsWith('new:')) {
+      // Program/course doesn't exist yet — will be inserted after upserts.
       program_courses.insert.push(pc);
       continue;
     }
-    const existing = snap.programCourseByPair.get(`${programId}|${courseId}`);
+    const existing = snap.programCourseByPlacement.get(placeKey);
     if (!existing) program_courses.insert.push(pc);
     else {
-      const changed =
-        existing.year !== pc.year ||
-        (existing.semester ?? null) !== (pc.semester ?? null) ||
-        (existing.period ?? null) !== (pc.period ?? null) ||
-        existing.mandatory !== (pc.mandatory ?? true) ||
-        existing.sort_order !== (pc.sort_order ?? 0);
+      const changed = existing.sort_order !== (pc.sort_order ?? 0);
       if (changed) program_courses.update.push(pc);
       else program_courses.unchanged.push(pc);
     }
+  }
+
+  if (program_courses.duplicates.length > 0) {
+    warnings.push(
+      `program_courses: ${program_courses.duplicates.length} exakt identiska placeringar hoppas över`,
+    );
   }
 
   // ---- prerequisites ----
@@ -494,15 +532,16 @@ export async function executeJsonImport(data: ParsedCatalog): Promise<ImportResu
 
   const snap = beforeCourseSnap;
 
-  // 3. Program courses
+  // 3. Program courses — placement-aware. Same course can repeat in different slots.
   let pcInserted = 0;
   let pcUpdated = 0;
   if (data.program_courses.length > 0) {
-    const payload: Array<{
+    const inserts: Array<{
       program_id: string; course_id: string; year: number;
       semester: string | null; period: string | null;
       mandatory: boolean; sort_order: number;
     }> = [];
+    const updates: Array<{ id: string; sort_order: number }> = [];
     const seen = new Set<string>();
     for (const pc of data.program_courses) {
       const programId = snap.programByName.get(pc.program_name)?.id;
@@ -511,24 +550,40 @@ export async function executeJsonImport(data: ParsedCatalog): Promise<ImportResu
         warnings.push(`Hoppade över program_course (${pc.program_name} / ${pc.course_code}): saknar program/kurs i DB`);
         continue;
       }
-      const pairKey = `${programId}|${courseId}`;
-      if (seen.has(pairKey)) continue;
-      seen.add(pairKey);
-      if (snap.programCourseByPair.has(pairKey)) pcUpdated++; else pcInserted++;
-      payload.push({
-        program_id: programId,
-        course_id: courseId,
-        year: pc.year,
-        semester: pc.semester ?? null,
-        period: pc.period ?? null,
-        mandatory: pc.mandatory ?? true,
-        sort_order: pc.sort_order ?? 0,
-      });
+      const semester = pc.semester ?? null;
+      const period = pc.period ?? null;
+      const mandatory = pc.mandatory ?? true;
+      const k = placementKey(programId, courseId, pc.year, semester, period, mandatory);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      const existing = snap.programCourseByPlacement.get(k);
+      if (existing) {
+        if (existing.sort_order !== (pc.sort_order ?? 0)) {
+          updates.push({ id: existing.id, sort_order: pc.sort_order ?? 0 });
+          pcUpdated++;
+        }
+      } else {
+        inserts.push({
+          program_id: programId,
+          course_id: courseId,
+          year: pc.year,
+          semester,
+          period,
+          mandatory,
+          sort_order: pc.sort_order ?? 0,
+        });
+        pcInserted++;
+      }
     }
-    if (payload.length > 0) {
+    if (inserts.length > 0) {
+      const { error } = await supabase.from('program_courses').insert(inserts);
+      if (error) throw error;
+    }
+    for (const u of updates) {
       const { error } = await supabase
         .from('program_courses')
-        .upsert(payload, { onConflict: 'program_id,course_id' });
+        .update({ sort_order: u.sort_order })
+        .eq('id', u.id);
       if (error) throw error;
     }
   }

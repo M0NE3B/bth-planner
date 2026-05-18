@@ -108,6 +108,22 @@ export default function JsonImportCard() {
         {plan && (
           <div className="space-y-3">
             <PlanSummary plan={plan} />
+            {plan.program_courses.repeated.length > 0 && (
+              <WarningList
+                title={`Valbara kurser i flera platser (${plan.program_courses.repeated.length}) — importeras som separata rader`}
+                items={plan.program_courses.repeated.slice(0, 30).map(
+                  (pc) => `${pc.course_code} → ${pc.program_name} (år ${pc.year}, ${pc.semester ?? '-'}, period ${pc.period ?? '-'}, ${pc.mandatory ? 'oblig.' : 'valbar'})`,
+                )}
+              />
+            )}
+            {plan.program_courses.duplicates.length > 0 && (
+              <WarningList
+                title={`Exakta dubbletter i program-kurs-länkar (${plan.program_courses.duplicates.length}) — hoppas över`}
+                items={plan.program_courses.duplicates.slice(0, 30).map(
+                  (pc) => `${pc.course_code} → ${pc.program_name} (år ${pc.year}, ${pc.semester ?? '-'}, period ${pc.period ?? '-'}, ${pc.mandatory ? 'oblig.' : 'valbar'})`,
+                )}
+              />
+            )}
             {plan.warnings.length > 0 && <WarningList title="Varningar" items={plan.warnings} />}
             {plan.prerequisites.manual.length > 0 && (
               <WarningList
@@ -153,23 +169,34 @@ export default function JsonImportCard() {
 }
 
 function PlanSummary({ plan }: { plan: ImportPlan }) {
-  const rows: Array<[string, { insert: unknown[]; update: unknown[]; unchanged?: unknown[] }]> = [
-    ['Program', plan.programs],
-    ['Kurser', plan.courses],
-    ['Program-kurs-länkar', plan.program_courses],
-  ];
   return (
     <div className="rounded-md border border-border p-3 bg-muted/30 space-y-2">
       <h4 className="text-sm font-semibold">Förhandsgranskning</h4>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-        {rows.map(([label, g]) => (
-          <div key={label} className="rounded border border-border p-2 bg-background">
-            <p className="font-medium text-sm">{label}</p>
-            <p className="text-emerald-700">+{g.insert.length} nya</p>
-            <p className="text-amber-700">~{g.update.length} uppdateras</p>
-            {g.unchanged && <p className="text-muted-foreground">={g.unchanged.length} oförändrade</p>}
-          </div>
-        ))}
+        <div className="rounded border border-border p-2 bg-background">
+          <p className="font-medium text-sm">Program</p>
+          <p className="text-emerald-700">+{plan.programs.insert.length} nya</p>
+          <p className="text-amber-700">~{plan.programs.update.length} uppdateras</p>
+          <p className="text-muted-foreground">={plan.programs.unchanged.length} oförändrade</p>
+        </div>
+        <div className="rounded border border-border p-2 bg-background">
+          <p className="font-medium text-sm">Kurser</p>
+          <p className="text-emerald-700">+{plan.courses.insert.length} nya</p>
+          <p className="text-amber-700">~{plan.courses.update.length} uppdateras</p>
+          <p className="text-muted-foreground">={plan.courses.unchanged.length} oförändrade</p>
+        </div>
+        <div className="rounded border border-border p-2 bg-background">
+          <p className="font-medium text-sm">Program-kurs-länkar</p>
+          <p className="text-emerald-700">+{plan.program_courses.insert.length} nya</p>
+          <p className="text-amber-700">~{plan.program_courses.update.length} uppdateras</p>
+          <p className="text-muted-foreground">={plan.program_courses.unchanged.length} oförändrade</p>
+          {plan.program_courses.repeated.length > 0 && (
+            <p className="text-sky-700">↺ {plan.program_courses.repeated.length} valbara repetitioner</p>
+          )}
+          {plan.program_courses.duplicates.length > 0 && (
+            <p className="text-destructive">✕ {plan.program_courses.duplicates.length} exakta dubbletter</p>
+          )}
+        </div>
         <div className="rounded border border-border p-2 bg-background">
           <p className="font-medium text-sm">Förkunskaper</p>
           <p className="text-emerald-700">+{plan.prerequisites.insert.length} nya</p>
