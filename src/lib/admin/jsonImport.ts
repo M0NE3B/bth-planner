@@ -172,14 +172,19 @@ export function parseCatalogJson(text: string): ParseResult {
     if (!p || typeof p !== 'object') return;
     const o = p as Record<string, unknown>;
     const target_course_code = asStr(pick(o, ['target_course_code', 'target_code', 'target']));
-    const rt = asStr(pick(o, ['requirement_type', 'type'])) as RequirementType | undefined;
-    if (!target_course_code || !rt) {
+    const rtRaw = asStr(pick(o, ['requirement_type', 'type']));
+    if (!target_course_code || !rtRaw) {
       errors.push(`course_prerequisites[${i}]: saknar target_course_code/requirement_type`);
       return;
     }
+    const originalText = asStr(pick(o, ['original_text', 'text'])) ?? null;
+    const manualReviewIn = asBool(pick(o, ['manual_review', 'manualReview']));
+    let rt = rtRaw as RequirementType;
+    let manual_review = manualReviewIn ?? false;
     if (!REQ_TYPES.includes(rt)) {
-      errors.push(`course_prerequisites[${i}]: okänd requirement_type "${rt}"`);
-      return;
+      // Never fail import on unknown/too-complex types — downgrade safely.
+      rt = 'custom_text';
+      manual_review = true;
     }
     course_prerequisites.push({
       target_course_code: target_course_code.toUpperCase(),
@@ -187,8 +192,17 @@ export function parseCatalogJson(text: string): ParseResult {
       required_course_code: (asStr(pick(o, ['required_course_code', 'required_code'])) ?? '').toUpperCase() || null,
       required_hp: asNum(pick(o, ['required_hp', 'hp'])) ?? null,
       required_subject_area: asStr(pick(o, ['required_subject_area', 'subject', 'subject_area'])) ?? null,
-      original_text: asStr(pick(o, ['original_text', 'text'])) ?? null,
-      logic_group: asNum(pick(o, ['logic_group'])) ?? null,
+      original_text: originalText,
+      logic_group: asNum(pick(o, ['logic_group', 'logicGroup'])) ?? null,
+      required_level: asStr(pick(o, ['required_level', 'level'])) ?? null,
+      course_group_name: asStr(pick(o, ['course_group_name', 'groupName', 'group_name'])) ?? null,
+      allowed_program_groups: asStrArray(pick(o, ['allowed_program_groups', 'allowedProgramGroups', 'allowed_program_categories', 'program_groups'])) ?? null,
+      allowed_course_codes: asStrArray(pick(o, ['allowed_course_codes', 'allowedCourseCodes', 'course_codes']))?.map((c) => c.toUpperCase()) ?? null,
+      manual_review,
+      group_operator: (() => {
+        const g = asStr(pick(o, ['group_operator', 'groupOperator']));
+        return g === 'AND' || g === 'OR' ? g : null;
+      })(),
     });
   });
 
