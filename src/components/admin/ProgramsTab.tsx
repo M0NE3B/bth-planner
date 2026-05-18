@@ -216,6 +216,35 @@ export default function ProgramsTab() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Ta bort programmet permanent?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget && (
+                <>
+                  <strong>{deleteTarget.name}</strong> tas bort helt från katalogen tillsammans med
+                  alla {deleteTarget.course_count} program-kurs-länkar. Kurserna själva och
+                  användardata (statusar, händelser, delmoment) påverkas inte.
+                  <br /><br />
+                  Den här åtgärden går inte att ångra. Vill du istället bara dölja programmet,
+                  använd <em>Arkivera</em>.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Avbryt</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(e) => { e.preventDefault(); void handleDelete(); }}
+            >
+              Ta bort permanent
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
