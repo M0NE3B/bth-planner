@@ -35,6 +35,7 @@ export default function PrerequisitesTab() {
   const [type, setType] = useState<RequirementType | 'all'>('all');
   const [onlyMissing, setOnlyMissing] = useState(false);
   const [onlyCustom, setOnlyCustom] = useState(false);
+  const [onlyManual, setOnlyManual] = useState(false);
 
   const load = async () => {
     setLoading(true);
