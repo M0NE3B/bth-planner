@@ -160,9 +160,20 @@ export default function ProgramsTab() {
                   {p.active ? <Badge variant="secondary">Aktiv</Badge> : <Badge variant="outline">Arkiverad</Badge>}
                 </TableCell>
                 <TableCell>
-                  <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setArchiveTarget(p); }}>
-                    {p.active ? 'Arkivera' : 'Återaktivera'}
-                  </Button>
+                  <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                    <Button variant="ghost" size="sm" onClick={() => setArchiveTarget(p)}>
+                      {p.active ? 'Arkivera' : 'Återaktivera'}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => setDeleteTarget(p)}
+                      title="Ta bort program"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
