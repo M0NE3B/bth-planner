@@ -14,6 +14,7 @@ interface IssueGroup {
   title: string;
   description?: string;
   items: string[];
+  tone?: 'error' | 'info';
 }
 
 export default function DataQualityTab() {
