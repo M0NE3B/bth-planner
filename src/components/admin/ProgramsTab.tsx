@@ -233,7 +233,17 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
     return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   }, [rows]);
 
-  const obligHp = rows.reduce((s, r) => s + Number(r.course?.hp ?? 0), 0);
+  const stats = useMemo(() => {
+    const linkedCourses = rows.length;
+    const mandatoryRows = rows.filter((r) => r.mandatory);
+    const optionalRows = rows.filter((r) => !r.mandatory);
+    const mandatoryHp = mandatoryRows.reduce((s, r) => s + Number(r.course?.hp ?? 0), 0);
+    const optionalHp = optionalRows.reduce((s, r) => s + Number(r.course?.hp ?? 0), 0);
+    const activeCount = rows.filter((r) => r.course?.active).length;
+    const inactiveCount = linkedCourses - activeCount;
+    return { linkedCourses, mandatoryHp, optionalHp, activeCount, inactiveCount };
+  }, [rows]);
+  const obligHp = stats.mandatoryHp + stats.optionalHp;
 
   const addCourse = async (year: number, semester: string) => {
     // Find first course not yet linked
