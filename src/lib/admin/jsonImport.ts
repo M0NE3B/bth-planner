@@ -281,7 +281,7 @@ export async function fetchDbSnapshot(): Promise<DbSnapshot> {
       original_prerequisite_text: row.original_prerequisite_text,
     });
   }
-  const programCourseByPair = new Map<string, {
+  const programCourseByPlacement = new Map<string, {
     id: string; year: number; semester: string | null; period: string | null;
     mandatory: boolean; sort_order: number;
   }>();
@@ -290,7 +290,8 @@ export async function fetchDbSnapshot(): Promise<DbSnapshot> {
     year: number; semester: string | null; period: string | null;
     mandatory: boolean; sort_order: number;
   }>) {
-    programCourseByPair.set(`${row.program_id}|${row.course_id}`, {
+    const k = placementKey(row.program_id, row.course_id, row.year, row.semester, row.period, row.mandatory);
+    programCourseByPlacement.set(k, {
       id: row.id, year: row.year, semester: row.semester, period: row.period,
       mandatory: row.mandatory, sort_order: row.sort_order,
     });
