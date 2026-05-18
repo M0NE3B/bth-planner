@@ -142,7 +142,7 @@ export default function ProgramsTab() {
               <TableHead className="w-28">Obl. HP</TableHead>
               <TableHead className="w-28">Total HP</TableHead>
               <TableHead className="w-24">Status</TableHead>
-              <TableHead className="w-20"></TableHead>
+              <TableHead className="w-44"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
