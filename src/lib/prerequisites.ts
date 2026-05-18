@@ -15,12 +15,25 @@ export type RequirementType =
   | 'completed_hp_in_course'
   | 'completed_hp_in_subject'
   | 'completed_total_hp'
+  | 'completed_hp_in_program_group'
+  | 'completed_hp_in_course_group'
+  | 'completed_hp_at_level'
   | 'custom_text';
+
+export type GroupOperator = 'AND' | 'OR';
 
 export interface BaseRequirement {
   type: RequirementType;
   /** Optional admin-supplied label shown verbatim instead of generated text. */
   label?: string;
+  /** Logical grouping for alternative requirements. Rows sharing the same
+   *  logicGroup are combined with `groupOperator` (default AND). */
+  logicGroup?: number | null;
+  groupOperator?: GroupOperator | null;
+  /** When true, treat as informational only — never block automatically. */
+  manualReview?: boolean;
+  /** Original prerequisite text snippet for display alongside structured rule. */
+  originalText?: string;
 }
 
 export interface CompletedCourseRequirement extends BaseRequirement {
@@ -45,6 +58,28 @@ export interface CompletedTotalHpRequirement extends BaseRequirement {
   type: 'completed_total_hp';
   hp: number;
 }
+export interface CompletedHpInProgramGroupRequirement extends BaseRequirement {
+  type: 'completed_hp_in_program_group';
+  hp: number;
+  /** Allowed program names/categories, e.g. ["Maskinteknik", "Industriell ekonomi"]. */
+  allowedProgramGroups: string[];
+}
+export interface CompletedHpInCourseGroupRequirement extends BaseRequirement {
+  type: 'completed_hp_in_course_group';
+  hp: number;
+  /** Human label for the group, e.g. "CAD/Datorstöd för ingenjörsarbete". */
+  groupName: string;
+  /** Optional explicit course codes that fulfill the group. */
+  allowedCourseCodes?: string[];
+  /** Optional huvudområden whose courses count toward the group. */
+  allowedSubjectAreas?: string[];
+}
+export interface CompletedHpAtLevelRequirement extends BaseRequirement {
+  type: 'completed_hp_at_level';
+  hp: number;
+  /** Course level token, e.g. "advanced" / "A1N". */
+  level: string;
+}
 export interface CustomTextRequirement extends BaseRequirement {
   type: 'custom_text';
   text: string;
@@ -58,6 +93,9 @@ export type CourseRequirement =
   | CompletedHpInCourseRequirement
   | CompletedHpInSubjectRequirement
   | CompletedTotalHpRequirement
+  | CompletedHpInProgramGroupRequirement
+  | CompletedHpInCourseGroupRequirement
+  | CompletedHpAtLevelRequirement
   | CustomTextRequirement;
 
 export const REQUIREMENT_TYPE_LABEL: Record<RequirementType, string> = {
@@ -66,6 +104,9 @@ export const REQUIREMENT_TYPE_LABEL: Record<RequirementType, string> = {
   completed_hp_in_course: 'Avklarade HP i kurs',
   completed_hp_in_subject: 'Avklarade HP inom huvudområde',
   completed_total_hp: 'Totalt avklarade HP',
+  completed_hp_in_program_group: 'Avklarade HP inom programgrupp',
+  completed_hp_in_course_group: 'Avklarade HP inom kursgrupp',
+  completed_hp_at_level: 'Avklarade HP på nivå',
   custom_text: 'Manuellt krav',
 };
 
