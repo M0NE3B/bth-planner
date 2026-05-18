@@ -11,6 +11,9 @@ const REQ_TYPES: RequirementType[] = [
   'completed_hp_in_course',
   'completed_hp_in_subject',
   'completed_total_hp',
+  'completed_hp_in_program_group',
+  'completed_hp_in_course_group',
+  'completed_hp_at_level',
   'custom_text',
 ];
 
@@ -44,6 +47,12 @@ export interface JsonPrerequisite {
   required_subject_area?: string | null;
   original_text?: string | null;
   logic_group?: number | null;
+  required_level?: string | null;
+  course_group_name?: string | null;
+  allowed_program_groups?: string[] | null;
+  allowed_course_codes?: string[] | null;
+  manual_review?: boolean;
+  group_operator?: 'AND' | 'OR' | null;
 }
 
 export interface ParsedCatalog {
