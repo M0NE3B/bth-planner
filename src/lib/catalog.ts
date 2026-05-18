@@ -43,7 +43,12 @@ export type RequirementType =
   | 'completed_hp_in_course'
   | 'completed_hp_in_subject'
   | 'completed_total_hp'
+  | 'completed_hp_in_program_group'
+  | 'completed_hp_in_course_group'
+  | 'completed_hp_at_level'
   | 'custom_text';
+
+export type GroupOperator = 'AND' | 'OR';
 
 export interface CatalogPrerequisite {
   id: string;
@@ -54,6 +59,12 @@ export interface CatalogPrerequisite {
   required_subject_area: string | null;
   original_text: string | null;
   logic_group: number | null;
+  required_level?: string | null;
+  course_group_name?: string | null;
+  allowed_program_groups?: string[] | null;
+  allowed_course_codes?: string[] | null;
+  manual_review?: boolean;
+  group_operator?: GroupOperator | null;
 }
 
 /** Fetch the entire active course catalog. */
