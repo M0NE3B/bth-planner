@@ -9,11 +9,14 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { LogOut, User, GraduationCap, Settings as SettingsIcon, RotateCcw, Trash2 } from 'lucide-react';
+import { LogOut, User, GraduationCap, Settings as SettingsIcon, RotateCcw, Trash2, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { bthPrograms } from '@/lib/programs';
 import { estimateStudyYear } from '@/lib/studyYear';
 import { toast } from 'sonner';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
+import AdminPanel from './admin/AdminPanel';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface SettingsPageProps {
   userId: string;
