@@ -86,6 +86,17 @@ function pick<T>(obj: Record<string, unknown>, keys: string[]): unknown {
   for (const k of keys) if (obj[k] !== undefined && obj[k] !== null) return obj[k];
   return undefined;
 }
+function asStrArray(v: unknown): string[] | undefined {
+  if (Array.isArray(v)) {
+    const out = v.map((x) => (typeof x === 'string' ? x.trim() : '')).filter(Boolean);
+    return out.length > 0 ? out : undefined;
+  }
+  if (typeof v === 'string') {
+    const out = v.split(',').map((s) => s.trim()).filter(Boolean);
+    return out.length > 0 ? out : undefined;
+  }
+  return undefined;
+}
 
 export function parseCatalogJson(text: string): ParseResult {
   const errors: string[] = [];
