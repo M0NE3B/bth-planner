@@ -9,11 +9,14 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { LogOut, User, GraduationCap, Settings as SettingsIcon, RotateCcw, Trash2 } from 'lucide-react';
+import { LogOut, User, GraduationCap, Settings as SettingsIcon, RotateCcw, Trash2, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { bthPrograms } from '@/lib/programs';
 import { estimateStudyYear } from '@/lib/studyYear';
 import { toast } from 'sonner';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
+import AdminPanel from './admin/AdminPanel';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface SettingsPageProps {
   userId: string;
@@ -107,10 +110,11 @@ export default function SettingsPage({ userId, email, programName, startYear, on
     }
   };
 
-  return (
-    <div className="max-w-2xl mx-auto md:mt-12 animate-slide-up space-y-4 px-1">
-      <h1 className="font-heading text-2xl font-bold text-foreground">Inställningar</h1>
+  const { isAdmin } = useIsAdmin(userId);
 
+  const settingsContent = (
+    <>
+      {/* Account */}
       {/* Account */}
       <Card>
         <CardHeader>
@@ -263,6 +267,31 @@ export default function SettingsPage({ userId, email, programName, startYear, on
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </>
+  );
+
+  return (
+    <div className="max-w-2xl mx-auto md:mt-12 animate-slide-up space-y-4 px-1">
+      <h1 className="font-heading text-2xl font-bold text-foreground">Inställningar</h1>
+      {isAdmin ? (
+        <Tabs defaultValue="settings" className="w-full">
+          <TabsList className="grid grid-cols-2 w-full">
+            <TabsTrigger value="settings" className="gap-1">
+              <SettingsIcon className="h-3.5 w-3.5" /> Inställningar
+            </TabsTrigger>
+            <TabsTrigger value="admin" className="gap-1">
+              <ShieldCheck className="h-3.5 w-3.5" /> Administration
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="settings" className="mt-4 space-y-4">
+            {settingsContent}
+          </TabsContent>
+          <TabsContent value="admin" className="mt-4">
+            <AdminPanel />
+          </TabsContent>
+        </Tabs>
+      ) : settingsContent}
     </div>
   );
 }
+
