@@ -15,8 +15,7 @@ import { bthPrograms } from '@/lib/programs';
 import { estimateStudyYear } from '@/lib/studyYear';
 import { toast } from 'sonner';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
-import AdminPanel from './admin/AdminPanel';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Link } from 'react-router-dom';
 
 interface SettingsPageProps {
   userId: string;
@@ -273,24 +272,25 @@ export default function SettingsPage({ userId, email, programName, startYear, on
   return (
     <div className="max-w-2xl mx-auto md:mt-12 animate-slide-up space-y-4 px-1">
       <h1 className="font-heading text-2xl font-bold text-foreground">Inställningar</h1>
-      {isAdmin ? (
-        <Tabs defaultValue="settings" className="w-full">
-          <TabsList className="grid grid-cols-2 w-full">
-            <TabsTrigger value="settings" className="gap-1">
-              <SettingsIcon className="h-3.5 w-3.5" /> Inställningar
-            </TabsTrigger>
-            <TabsTrigger value="admin" className="gap-1">
-              <ShieldCheck className="h-3.5 w-3.5" /> Administration
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="settings" className="mt-4 space-y-4">
-            {settingsContent}
-          </TabsContent>
-          <TabsContent value="admin" className="mt-4">
-            <AdminPanel />
-          </TabsContent>
-        </Tabs>
-      ) : settingsContent}
+      {isAdmin && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="flex items-center justify-between gap-3 py-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <ShieldCheck className="h-4 w-4 text-primary shrink-0" />
+              <div className="min-w-0">
+                <div className="text-sm font-medium">Administration</div>
+                <div className="text-xs text-muted-foreground truncate">
+                  Hantera kurskatalog, program och administratörer
+                </div>
+              </div>
+            </div>
+            <Button asChild size="sm">
+              <Link to="/admin">Öppna</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+      {settingsContent}
     </div>
   );
 }
