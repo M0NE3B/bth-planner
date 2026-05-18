@@ -533,6 +533,7 @@ export type Database = {
       }
       user_courses: {
         Row: {
+          catalog_course_id: string | null
           course_code: string
           course_name: string
           created_at: string
@@ -544,6 +545,7 @@ export type Database = {
           year: number
         }
         Insert: {
+          catalog_course_id?: string | null
           course_code: string
           course_name: string
           created_at?: string
@@ -555,6 +557,7 @@ export type Database = {
           year: number
         }
         Update: {
+          catalog_course_id?: string | null
           course_code?: string
           course_name?: string
           created_at?: string
@@ -646,6 +649,8 @@ export type Database = {
       }
     }
     Functions: {
+      admin_backfill_user_courses_catalog: { Args: never; Returns: Json }
+      admin_catalog_migration_report: { Args: never; Returns: Json }
       grant_admin_by_email: { Args: { _email: string }; Returns: string }
       has_role: {
         Args: {
