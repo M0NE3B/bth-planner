@@ -29,6 +29,10 @@ export default function CourseCatalogTab() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showArchived, setShowArchived] = useState(false);
+  const [status, setStatus] = useState<'active' | 'archived' | 'all'>('active');
+  const [subject, setSubject] = useState<string>('all');
+  const [onlyMissingHp, setOnlyMissingHp] = useState(false);
+  const [onlyMissingSubject, setOnlyMissingSubject] = useState(false);
   const [editing, setEditing] = useState<CatalogCourse | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [archiveTarget, setArchiveTarget] = useState<CourseRow | null>(null);
