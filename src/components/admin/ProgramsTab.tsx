@@ -19,7 +19,7 @@ import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
-  upsertProgram, archiveProgram, upsertProgramCourse, removeProgramCourse,
+  upsertProgram, archiveProgram, deleteProgram, upsertProgramCourse, removeProgramCourse,
   type CatalogCourse, type CatalogProgram, type CatalogProgramCourse,
 } from '@/lib/admin';
 import CourseCombobox from './CourseCombobox';
