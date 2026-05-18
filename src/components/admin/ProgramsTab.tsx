@@ -257,6 +257,8 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
   const [name, setName] = useState(program.name);
   const [totalHp, setTotalHp] = useState<number | ''>(program.total_hp ?? '');
   const [savingMeta, setSavingMeta] = useState(false);
+  const [addYear, setAddYear] = useState<number>(1);
+  const [addSemester, setAddSemester] = useState<string>('HT');
 
   const load = async () => {
     setLoading(true);
@@ -284,7 +286,15 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
       const list = map.get(key) ?? [];
       list.push(r); map.set(key, list);
     }
-    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+    // Sort by year (numeric) then semester (HT before VT)
+    return Array.from(map.entries()).sort((a, b) => {
+      const [ay, as] = a[0].split('-');
+      const [by, bs] = b[0].split('-');
+      const yDiff = Number(ay) - Number(by);
+      if (yDiff !== 0) return yDiff;
+      const semOrder = (s: string) => (s === 'HT' ? 0 : s === 'VT' ? 1 : 2);
+      return semOrder(as) - semOrder(bs);
+    });
   }, [rows]);
 
   const stats = useMemo(() => {
@@ -320,22 +330,24 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
     return { linkedCourses, mandatoryHp, optionalHp, totalLinkedHp, activeCount, inactiveCount, expectedOptional, hpStatus, hpMessage };
   }, [rows, totalHp]);
 
-  const addCourse = async (year: number, semester: string) => {
-    // Find first course not yet linked
-    const used = new Set(rows.map((r) => r.course_id));
-    const available = courses.find((c) => !used.has(c.id));
-    if (!available) { toast.error('Alla kurser i katalogen är redan länkade'); return; }
+  const addCourse = async (year: number, semester: string, courseId?: string) => {
+    // Pick provided course, or first one in catalog (duplicates across placements are allowed).
+    const chosen = courseId
+      ? courses.find((c) => c.id === courseId)
+      : (courses[0] ?? null);
+    if (!chosen) { toast.error('Inga kurser i katalogen — importera eller skapa kurser först'); return; }
     try {
       await upsertProgramCourse({
         program_id: program.id,
-        course_id: available.id,
+        course_id: chosen.id,
         year, semester,
         mandatory: true,
         sort_order: rows.filter((r) => r.year === year && r.semester === semester).length,
       });
       void load();
     } catch (e) {
-      toast.error('Kunde inte lägga till kurs');
+      const msg = e instanceof Error ? e.message : '';
+      toast.error(`Kunde inte lägga till kurs${msg ? `: ${msg}` : ''}`);
     }
   };
 
@@ -432,14 +444,35 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
       </div>
 
 
+      <div className="rounded-md border border-border p-3 flex flex-wrap items-end gap-2">
+        <div>
+          <Label className="text-xs">År</Label>
+          <Input type="number" min={1} max={6} className="w-20" value={addYear}
+            onChange={(e) => setAddYear(Math.max(1, Math.min(6, Number(e.target.value) || 1)))} />
+        </div>
+        <div>
+          <Label className="text-xs">Termin</Label>
+          <Select value={addSemester} onValueChange={setAddSemester}>
+            <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="HT">HT</SelectItem>
+              <SelectItem value="VT">VT</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <Button size="sm" onClick={() => addCourse(addYear, addSemester)} className="gap-1">
+          <Plus className="h-4 w-4" /> Lägg till kurs i År {addYear} · {addSemester}
+        </Button>
+        <p className="text-xs text-muted-foreground ml-auto">
+          Tips: byt kurs i raden efter att den lagts till. Samma kurs kan länkas till flera placeringar (t.ex. valbara kurser).
+        </p>
+      </div>
+
       {loading ? (
         <p className="text-sm text-muted-foreground">Laddar kurser…</p>
       ) : grouped.length === 0 ? (
         <div className="text-center py-6 space-y-3 border border-dashed border-border rounded-md">
-          <p className="text-sm text-muted-foreground">Inga kurser länkade ännu.</p>
-          <Button size="sm" onClick={() => addCourse(1, 'HT')} className="gap-1">
-            <Plus className="h-4 w-4" /> Lägg till första kursen
-          </Button>
+          <p className="text-sm text-muted-foreground">Inga kurser länkade ännu. Använd verktyget ovan för att lägga till.</p>
         </div>
       ) : grouped.map(([key, list]) => {
         const [yearStr, semester] = key.split('-');

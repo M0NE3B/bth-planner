@@ -157,13 +157,12 @@ export async function upsertProgramCourse(input: ProgramCourseInput): Promise<Ca
     mandatory: input.mandatory ?? true,
     sort_order: input.sort_order ?? 0,
   };
+  // Note: the unique constraint is placement-aware (program_id, course_id, year,
+  // semester, period, mandatory) via index `program_courses_placement_uniq`,
+  // so we use a plain insert here — the DB will reject true duplicate placements.
   const query = input.id
     ? supabase.from('program_courses').update(payload).eq('id', input.id).select('*').single()
-    : supabase
-        .from('program_courses')
-        .upsert(payload, { onConflict: 'program_id,course_id' })
-        .select('*')
-        .single();
+    : supabase.from('program_courses').insert(payload).select('*').single();
   const { data, error } = await query;
   if (error) throw error;
   return data as unknown as CatalogProgramCourse;
