@@ -145,36 +145,54 @@ export type Database = {
       }
       course_prerequisites: {
         Row: {
+          allowed_course_codes: string[] | null
+          allowed_program_groups: string[] | null
+          course_group_name: string | null
           created_at: string
+          group_operator: string | null
           id: string
           logic_group: number | null
+          manual_review: boolean
           original_text: string | null
           required_course_id: string | null
           required_hp: number | null
+          required_level: string | null
           required_subject_area: string | null
           requirement_type: Database["public"]["Enums"]["course_requirement_type"]
           target_course_id: string
           updated_at: string
         }
         Insert: {
+          allowed_course_codes?: string[] | null
+          allowed_program_groups?: string[] | null
+          course_group_name?: string | null
           created_at?: string
+          group_operator?: string | null
           id?: string
           logic_group?: number | null
+          manual_review?: boolean
           original_text?: string | null
           required_course_id?: string | null
           required_hp?: number | null
+          required_level?: string | null
           required_subject_area?: string | null
           requirement_type: Database["public"]["Enums"]["course_requirement_type"]
           target_course_id: string
           updated_at?: string
         }
         Update: {
+          allowed_course_codes?: string[] | null
+          allowed_program_groups?: string[] | null
+          course_group_name?: string | null
           created_at?: string
+          group_operator?: string | null
           id?: string
           logic_group?: number | null
+          manual_review?: boolean
           original_text?: string | null
           required_course_id?: string | null
           required_hp?: number | null
+          required_level?: string | null
           required_subject_area?: string | null
           requirement_type?: Database["public"]["Enums"]["course_requirement_type"]
           target_course_id?: string
@@ -689,6 +707,9 @@ export type Database = {
         | "completed_hp_in_subject"
         | "completed_total_hp"
         | "custom_text"
+        | "completed_hp_in_program_group"
+        | "completed_hp_in_course_group"
+        | "completed_hp_at_level"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -824,6 +845,9 @@ export const Constants = {
         "completed_hp_in_subject",
         "completed_total_hp",
         "custom_text",
+        "completed_hp_in_program_group",
+        "completed_hp_in_course_group",
+        "completed_hp_at_level",
       ],
     },
   },
