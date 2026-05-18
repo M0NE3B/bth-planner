@@ -74,7 +74,7 @@ export default function PrerequisitesTab() {
       }
       return true;
     });
-  }, [rows, courseById, search, type, onlyMissing, onlyCustom]);
+  }, [rows, courseById, search, type, onlyMissing, onlyCustom, onlyManual]);
 
   return (
     <div className="space-y-3">
