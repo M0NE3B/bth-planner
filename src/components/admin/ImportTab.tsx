@@ -158,7 +158,10 @@ export default function ImportTab() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <JsonImportCard />
     </div>
+
   );
 }
 
