@@ -21,6 +21,9 @@ const TYPES: { value: RequirementType | 'all'; label: string }[] = [
   { value: 'completed_hp_in_course', label: 'HP i kurs' },
   { value: 'completed_hp_in_subject', label: 'HP i huvudområde' },
   { value: 'completed_total_hp', label: 'Total HP' },
+  { value: 'completed_hp_in_program_group', label: 'HP i programgrupp' },
+  { value: 'completed_hp_in_course_group', label: 'HP i kursgrupp' },
+  { value: 'completed_hp_at_level', label: 'HP på nivå' },
   { value: 'custom_text', label: 'Fritext' },
 ];
 
