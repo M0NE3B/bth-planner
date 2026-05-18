@@ -19,7 +19,7 @@ import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
-  upsertProgram, archiveProgram, upsertProgramCourse, removeProgramCourse,
+  upsertProgram, archiveProgram, deleteProgram, upsertProgramCourse, removeProgramCourse,
   type CatalogCourse, type CatalogProgram, type CatalogProgramCourse,
 } from '@/lib/admin';
 import CourseCombobox from './CourseCombobox';
@@ -42,6 +42,7 @@ export default function ProgramsTab() {
   const [newName, setNewName] = useState('');
   const [newHp, setNewHp] = useState<number | ''>('');
   const [archiveTarget, setArchiveTarget] = useState<ProgramRow | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ProgramRow | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -100,6 +101,19 @@ export default function ProgramsTab() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteProgram(deleteTarget.id);
+      toast.success('Programmet borttaget');
+      setDeleteTarget(null);
+      void load();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '';
+      toast.error(`Kunde inte ta bort programmet${msg ? `: ${msg}` : ''}`);
+    }
+  };
+
   if (activeProgram) {
     return (
       <ProgramDetail
@@ -128,7 +142,7 @@ export default function ProgramsTab() {
               <TableHead className="w-28">Obl. HP</TableHead>
               <TableHead className="w-28">Total HP</TableHead>
               <TableHead className="w-24">Status</TableHead>
-              <TableHead className="w-20"></TableHead>
+              <TableHead className="w-44"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -146,9 +160,20 @@ export default function ProgramsTab() {
                   {p.active ? <Badge variant="secondary">Aktiv</Badge> : <Badge variant="outline">Arkiverad</Badge>}
                 </TableCell>
                 <TableCell>
-                  <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setArchiveTarget(p); }}>
-                    {p.active ? 'Arkivera' : 'Återaktivera'}
-                  </Button>
+                  <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                    <Button variant="ghost" size="sm" onClick={() => setArchiveTarget(p)}>
+                      {p.active ? 'Arkivera' : 'Återaktivera'}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => setDeleteTarget(p)}
+                      title="Ta bort program"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -188,6 +213,35 @@ export default function ProgramsTab() {
           <AlertDialogFooter>
             <AlertDialogCancel>Avbryt</AlertDialogCancel>
             <AlertDialogAction onClick={(e) => { e.preventDefault(); void handleArchive(); }}>Bekräfta</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Ta bort programmet permanent?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget && (
+                <>
+                  <strong>{deleteTarget.name}</strong> tas bort helt från katalogen tillsammans med
+                  alla {deleteTarget.course_count} program-kurs-länkar. Kurserna själva och
+                  användardata (statusar, händelser, delmoment) påverkas inte.
+                  <br /><br />
+                  Den här åtgärden går inte att ångra. Vill du istället bara dölja programmet,
+                  använd <em>Arkivera</em>.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Avbryt</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(e) => { e.preventDefault(); void handleDelete(); }}
+            >
+              Ta bort permanent
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

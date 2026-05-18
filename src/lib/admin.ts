@@ -129,6 +129,13 @@ export async function archiveProgram(id: string, active: boolean): Promise<void>
   if (error) throw error;
 }
 
+export async function deleteProgram(id: string): Promise<void> {
+  // program_courses has ON DELETE CASCADE on program_id, so links are removed.
+  // course_prerequisites and user_courses are not touched.
+  const { error } = await supabase.from('programs_catalog').delete().eq('id', id);
+  if (error) throw error;
+}
+
 export interface ProgramCourseInput {
   id?: string;
   program_id: string;
