@@ -233,7 +233,17 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
     return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   }, [rows]);
 
-  const obligHp = rows.reduce((s, r) => s + Number(r.course?.hp ?? 0), 0);
+  const stats = useMemo(() => {
+    const linkedCourses = rows.length;
+    const mandatoryRows = rows.filter((r) => r.mandatory);
+    const optionalRows = rows.filter((r) => !r.mandatory);
+    const mandatoryHp = mandatoryRows.reduce((s, r) => s + Number(r.course?.hp ?? 0), 0);
+    const optionalHp = optionalRows.reduce((s, r) => s + Number(r.course?.hp ?? 0), 0);
+    const activeCount = rows.filter((r) => r.course?.active).length;
+    const inactiveCount = linkedCourses - activeCount;
+    return { linkedCourses, mandatoryHp, optionalHp, activeCount, inactiveCount };
+  }, [rows]);
+  const obligHp = stats.mandatoryHp + stats.optionalHp;
 
   const addCourse = async (year: number, semester: string) => {
     // Find first course not yet linked
@@ -313,6 +323,28 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
         </div>
       </div>
 
+      <div className="rounded-md border border-border p-3">
+        <h3 className="font-semibold text-sm mb-2">Programstatistik</h3>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
+          <Stat label="Länkade kurser" value={stats.linkedCourses} />
+          <Stat label="Obligatorisk HP" value={stats.mandatoryHp} />
+          <Stat label="Valbar HP" value={stats.optionalHp} />
+          <Stat label="Aktiva kurser" value={stats.activeCount} />
+          <Stat label="Arkiverade" value={stats.inactiveCount} tone={stats.inactiveCount > 0 ? 'warn' : undefined} />
+        </div>
+        <div className="mt-3 space-y-1 text-xs">
+          {stats.linkedCourses === 0 && (
+            <p className="text-destructive">⚠ Programmet har inga länkade kurser.</p>
+          )}
+          {typeof totalHp === 'number' && stats.linkedCourses > 0 && obligHp !== totalHp && (
+            <p className="text-destructive">⚠ HP-summa ({obligHp}) matchar inte programmets total ({totalHp}).</p>
+          )}
+          {stats.inactiveCount > 0 && (
+            <p className="text-destructive">⚠ {stats.inactiveCount} länkade kurser är arkiverade/saknas.</p>
+          )}
+        </div>
+      </div>
+
       {loading ? (
         <p className="text-sm text-muted-foreground">Laddar kurser…</p>
       ) : grouped.length === 0 ? (
@@ -387,6 +419,15 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function Stat({ label, value, tone }: { label: string; value: number; tone?: 'warn' }) {
+  return (
+    <div className="rounded-md border border-border p-2">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className={`font-heading text-lg ${tone === 'warn' ? 'text-destructive' : 'text-foreground'}`}>{value}</div>
     </div>
   );
 }
