@@ -307,7 +307,7 @@ export async function fetchDbSnapshot(): Promise<DbSnapshot> {
       row.required_subject_area, row.required_hp, row.original_text,
     ));
   }
-  return { programByName, courseByCode, programCourseByPair, prereqKeys };
+  return { programByName, courseByCode, programCourseByPlacement, prereqKeys };
 }
 
 // ---------- Plan ----------
