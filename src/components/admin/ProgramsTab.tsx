@@ -345,6 +345,7 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
         </div>
       </div>
 
+      {loading ? (
         <p className="text-sm text-muted-foreground">Laddar kurser…</p>
       ) : grouped.length === 0 ? (
         <div className="text-center py-6 space-y-3 border border-dashed border-border rounded-md">
