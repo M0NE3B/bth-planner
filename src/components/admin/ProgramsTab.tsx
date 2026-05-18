@@ -257,6 +257,8 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
   const [name, setName] = useState(program.name);
   const [totalHp, setTotalHp] = useState<number | ''>(program.total_hp ?? '');
   const [savingMeta, setSavingMeta] = useState(false);
+  const [addYear, setAddYear] = useState<number>(1);
+  const [addSemester, setAddSemester] = useState<string>('HT');
 
   const load = async () => {
     setLoading(true);
