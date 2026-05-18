@@ -221,11 +221,19 @@ export interface DbSnapshot {
     subject_area: string | null; level: string | null;
     original_prerequisite_text: string | null;
   }>;
-  programCourseByPair: Map<string, {
+  programCourseByPlacement: Map<string, {
     id: string; year: number; semester: string | null; period: string | null;
     mandatory: boolean; sort_order: number;
   }>;
   prereqKeys: Set<string>;
+}
+
+/** Placement key — matches DB unique index program_courses_placement_uniq. */
+function placementKey(
+  programId: string, courseId: string,
+  year: number, semester: string | null, period: string | null, mandatory: boolean,
+): string {
+  return [programId, courseId, year, semester ?? '', period ?? '', mandatory ? '1' : '0'].join('|');
 }
 
 function prereqKey(
