@@ -6,6 +6,7 @@ import ImportTab from './ImportTab';
 import AdminsTab from './AdminsTab';
 import DataQualityTab from './DataQualityTab';
 import PrerequisitesTab from './PrerequisitesTab';
+import MigrationTab from './MigrationTab';
 
 export default function AdminPanel() {
   return (
