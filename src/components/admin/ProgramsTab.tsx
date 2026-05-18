@@ -456,7 +456,7 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
   );
 }
 
-function Stat({ label, value, tone }: { label: string; value: number; tone?: 'warn' }) {
+function Stat({ label, value, tone }: { label: string; value: number | string; tone?: 'warn' }) {
   return (
     <div className="rounded-md border border-border p-2">
       <div className="text-xs text-muted-foreground">{label}</div>
