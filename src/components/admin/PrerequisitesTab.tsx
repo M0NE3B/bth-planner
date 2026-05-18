@@ -101,6 +101,10 @@ export default function PrerequisitesTab() {
           <Switch id="only-missing" checked={onlyMissing} onCheckedChange={setOnlyMissing} />
           <Label htmlFor="only-missing" className="text-sm">Endast saknade</Label>
         </div>
+        <div className="flex items-center gap-2 px-2">
+          <Switch id="only-manual" checked={onlyManual} onCheckedChange={setOnlyManual} />
+          <Label htmlFor="only-manual" className="text-sm">Endast manuella</Label>
+        </div>
       </div>
 
       <p className="text-xs text-muted-foreground">{filtered.length} av {rows.length} regler</p>
