@@ -532,15 +532,16 @@ export async function executeJsonImport(data: ParsedCatalog): Promise<ImportResu
 
   const snap = beforeCourseSnap;
 
-  // 3. Program courses
+  // 3. Program courses — placement-aware. Same course can repeat in different slots.
   let pcInserted = 0;
   let pcUpdated = 0;
   if (data.program_courses.length > 0) {
-    const payload: Array<{
+    const inserts: Array<{
       program_id: string; course_id: string; year: number;
       semester: string | null; period: string | null;
       mandatory: boolean; sort_order: number;
     }> = [];
+    const updates: Array<{ id: string; sort_order: number }> = [];
     const seen = new Set<string>();
     for (const pc of data.program_courses) {
       const programId = snap.programByName.get(pc.program_name)?.id;
@@ -549,24 +550,40 @@ export async function executeJsonImport(data: ParsedCatalog): Promise<ImportResu
         warnings.push(`Hoppade över program_course (${pc.program_name} / ${pc.course_code}): saknar program/kurs i DB`);
         continue;
       }
-      const pairKey = `${programId}|${courseId}`;
-      if (seen.has(pairKey)) continue;
-      seen.add(pairKey);
-      if (snap.programCourseByPair.has(pairKey)) pcUpdated++; else pcInserted++;
-      payload.push({
-        program_id: programId,
-        course_id: courseId,
-        year: pc.year,
-        semester: pc.semester ?? null,
-        period: pc.period ?? null,
-        mandatory: pc.mandatory ?? true,
-        sort_order: pc.sort_order ?? 0,
-      });
+      const semester = pc.semester ?? null;
+      const period = pc.period ?? null;
+      const mandatory = pc.mandatory ?? true;
+      const k = placementKey(programId, courseId, pc.year, semester, period, mandatory);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      const existing = snap.programCourseByPlacement.get(k);
+      if (existing) {
+        if (existing.sort_order !== (pc.sort_order ?? 0)) {
+          updates.push({ id: existing.id, sort_order: pc.sort_order ?? 0 });
+          pcUpdated++;
+        }
+      } else {
+        inserts.push({
+          program_id: programId,
+          course_id: courseId,
+          year: pc.year,
+          semester,
+          period,
+          mandatory,
+          sort_order: pc.sort_order ?? 0,
+        });
+        pcInserted++;
+      }
     }
-    if (payload.length > 0) {
+    if (inserts.length > 0) {
+      const { error } = await supabase.from('program_courses').insert(inserts);
+      if (error) throw error;
+    }
+    for (const u of updates) {
       const { error } = await supabase
         .from('program_courses')
-        .upsert(payload, { onConflict: 'program_id,course_id' });
+        .update({ sort_order: u.sort_order })
+        .eq('id', u.id);
       if (error) throw error;
     }
   }
