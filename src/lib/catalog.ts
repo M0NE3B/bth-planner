@@ -126,6 +126,7 @@ export function prereqsToRequirements(
   const codeById = new Map(catalog.map((c) => [c.id, c.course_code]));
   return rows.map((r) => {
     const code = r.required_course_id ? codeById.get(r.required_course_id) : undefined;
+    const manual = !!r.manual_review;
     switch (r.requirement_type) {
       case 'completed_course':
         return { type: 'completed_course', courseCode: code ?? '' };
@@ -145,9 +146,35 @@ export function prereqsToRequirements(
         };
       case 'completed_total_hp':
         return { type: 'completed_total_hp', hp: r.required_hp ?? 0 };
+      case 'completed_hp_in_program_group':
+        return {
+          type: 'completed_hp_in_program_group',
+          hp: r.required_hp ?? 0,
+          allowedProgramGroups: r.allowed_program_groups ?? [],
+          manualReview: manual,
+          originalText: r.original_text ?? undefined,
+        };
+      case 'completed_hp_in_course_group':
+        return {
+          type: 'completed_hp_in_course_group',
+          hp: r.required_hp ?? 0,
+          groupName: r.course_group_name ?? '',
+          allowedCourseCodes: r.allowed_course_codes ?? [],
+          allowedSubjectAreas: r.required_subject_area ? [r.required_subject_area] : [],
+          manualReview: manual,
+          originalText: r.original_text ?? undefined,
+        };
+      case 'completed_hp_at_level':
+        return {
+          type: 'completed_hp_at_level',
+          hp: r.required_hp ?? 0,
+          level: r.required_level ?? '',
+          manualReview: manual,
+          originalText: r.original_text ?? undefined,
+        };
       case 'custom_text':
       default:
-        return { type: 'custom_text', text: r.original_text ?? '' };
+        return { type: 'custom_text', text: r.original_text ?? '', blocking: false };
     }
   });
 }
