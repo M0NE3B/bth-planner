@@ -188,6 +188,7 @@ export default function DataQualityTab() {
       title: 'Program med valbar kurspool (informativt)',
       description: 'Total länkad HP överstiger programtotalen eftersom valbara kurser ingår som en pool.',
       items: hpInfo,
+      tone: 'info',
     });
 
     return result;
