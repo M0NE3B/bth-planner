@@ -335,8 +335,8 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
         </div>
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">
-            Obligatorisk HP enligt kurser: <strong className="text-foreground">{obligHp}</strong>
-            {typeof totalHp === 'number' && obligHp !== totalHp && (
+            Totalt länkade HP: <strong className="text-foreground">{stats.totalLinkedHp}</strong>
+            {stats.hpStatus === 'error' && (
               <span className="text-destructive ml-2">(avviker från total HP)</span>
             )}
           </span>
@@ -346,10 +346,18 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
 
       <div className="rounded-md border border-border p-3">
         <h3 className="font-semibold text-sm mb-2">Programstatistik</h3>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 text-sm">
+          <Stat label="Programtotal" value={typeof totalHp === 'number' ? `${totalHp} HP` : '–'} />
+          <Stat label="Obligatoriska HP" value={`${stats.mandatoryHp} HP`} />
+          <Stat label="Valbar kurspool" value={`${stats.optionalHp} HP`} />
+          <Stat
+            label="Valbara HP som behövs"
+            value={stats.expectedOptional != null ? `${stats.expectedOptional} HP` : '–'}
+          />
+          <Stat label="Totalt länkade HP" value={`${stats.totalLinkedHp} HP`} />
           <Stat label="Länkade kurser" value={stats.linkedCourses} />
-          <Stat label="Obligatorisk HP" value={stats.mandatoryHp} />
-          <Stat label="Valbar HP" value={stats.optionalHp} />
+        </div>
+        <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
           <Stat label="Aktiva kurser" value={stats.activeCount} />
           <Stat label="Arkiverade" value={stats.inactiveCount} tone={stats.inactiveCount > 0 ? 'warn' : undefined} />
         </div>
@@ -357,14 +365,18 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
           {stats.linkedCourses === 0 && (
             <p className="text-destructive">⚠ Programmet har inga länkade kurser.</p>
           )}
-          {typeof totalHp === 'number' && stats.linkedCourses > 0 && obligHp !== totalHp && (
-            <p className="text-destructive">⚠ HP-summa ({obligHp}) matchar inte programmets total ({totalHp}).</p>
+          {stats.hpStatus === 'error' && (
+            <p className="text-destructive">⚠ {stats.hpMessage}</p>
+          )}
+          {stats.hpStatus === 'info' && (
+            <p className="text-muted-foreground">ℹ {stats.hpMessage}</p>
           )}
           {stats.inactiveCount > 0 && (
             <p className="text-destructive">⚠ {stats.inactiveCount} länkade kurser är arkiverade/saknas.</p>
           )}
         </div>
       </div>
+
 
       {loading ? (
         <p className="text-sm text-muted-foreground">Laddar kurser…</p>
