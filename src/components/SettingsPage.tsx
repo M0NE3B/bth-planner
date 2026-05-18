@@ -267,6 +267,31 @@ export default function SettingsPage({ userId, email, programName, startYear, on
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </>
+  );
+
+  return (
+    <div className="max-w-2xl mx-auto md:mt-12 animate-slide-up space-y-4 px-1">
+      <h1 className="font-heading text-2xl font-bold text-foreground">Inställningar</h1>
+      {isAdmin ? (
+        <Tabs defaultValue="settings" className="w-full">
+          <TabsList className="grid grid-cols-2 w-full">
+            <TabsTrigger value="settings" className="gap-1">
+              <SettingsIcon className="h-3.5 w-3.5" /> Inställningar
+            </TabsTrigger>
+            <TabsTrigger value="admin" className="gap-1">
+              <ShieldCheck className="h-3.5 w-3.5" /> Administration
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="settings" className="mt-4 space-y-4">
+            {settingsContent}
+          </TabsContent>
+          <TabsContent value="admin" className="mt-4">
+            <AdminPanel />
+          </TabsContent>
+        </Tabs>
+      ) : settingsContent}
     </div>
   );
 }
+
