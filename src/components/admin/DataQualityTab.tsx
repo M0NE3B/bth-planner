@@ -194,7 +194,7 @@ export default function DataQualityTab() {
     return result;
   }, [courses, programs, pc, prereqs]);
 
-  const totalIssues = groups.reduce((s, g) => s + g.items.length, 0);
+  const totalIssues = groups.reduce((s, g) => s + (g.tone === 'info' ? 0 : g.items.length), 0);
 
   return (
     <div className="space-y-3">
@@ -213,11 +213,11 @@ export default function DataQualityTab() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {groups.map((g) => (
-          <Card key={g.key} className={g.items.length > 0 ? 'border-destructive/40' : ''}>
+          <Card key={g.key} className={g.items.length > 0 && g.tone !== 'info' ? 'border-destructive/40' : ''}>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center justify-between">
                 <span>{g.title}</span>
-                <Badge variant={g.items.length > 0 ? 'destructive' : 'secondary'}>{g.items.length}</Badge>
+                <Badge variant={g.items.length > 0 && g.tone !== 'info' ? 'destructive' : 'secondary'}>{g.items.length}</Badge>
               </CardTitle>
               {g.description && <p className="text-xs text-muted-foreground">{g.description}</p>}
             </CardHeader>
