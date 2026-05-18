@@ -64,14 +64,36 @@ export default function CourseEditorSheet({ open, course, allCourses, onClose, o
         .eq('target_course_id', course.id)
         .then(({ data }) => {
           setPrereqs(
-            (data ?? []).map((r) => ({
-              requirement_type: r.requirement_type,
-              required_course_id: r.required_course_id,
-              required_hp: r.required_hp != null ? Number(r.required_hp) : null,
-              required_subject_area: r.required_subject_area,
-              original_text: r.original_text,
-              logic_group: r.logic_group,
-            })),
+            (data ?? []).map((r) => {
+              const row = r as unknown as {
+                requirement_type: PrerequisiteInput['requirement_type'];
+                required_course_id: string | null;
+                required_hp: number | string | null;
+                required_subject_area: string | null;
+                original_text: string | null;
+                logic_group: number | null;
+                required_level?: string | null;
+                course_group_name?: string | null;
+                allowed_program_groups?: string[] | null;
+                allowed_course_codes?: string[] | null;
+                manual_review?: boolean | null;
+                group_operator?: 'AND' | 'OR' | null;
+              };
+              return {
+                requirement_type: row.requirement_type,
+                required_course_id: row.required_course_id,
+                required_hp: row.required_hp != null ? Number(row.required_hp) : null,
+                required_subject_area: row.required_subject_area,
+                original_text: row.original_text,
+                logic_group: row.logic_group,
+                required_level: row.required_level ?? null,
+                course_group_name: row.course_group_name ?? null,
+                allowed_program_groups: row.allowed_program_groups ?? null,
+                allowed_course_codes: row.allowed_course_codes ?? null,
+                manual_review: !!row.manual_review,
+                group_operator: row.group_operator ?? null,
+              };
+            }),
           );
         });
     } else {
