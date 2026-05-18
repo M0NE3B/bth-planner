@@ -239,11 +239,32 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
     const optionalRows = rows.filter((r) => !r.mandatory);
     const mandatoryHp = mandatoryRows.reduce((s, r) => s + Number(r.course?.hp ?? 0), 0);
     const optionalHp = optionalRows.reduce((s, r) => s + Number(r.course?.hp ?? 0), 0);
+    const totalLinkedHp = mandatoryHp + optionalHp;
     const activeCount = rows.filter((r) => r.course?.active).length;
     const inactiveCount = linkedCourses - activeCount;
-    return { linkedCourses, mandatoryHp, optionalHp, activeCount, inactiveCount };
-  }, [rows]);
-  const obligHp = stats.mandatoryHp + stats.optionalHp;
+    const total = typeof totalHp === 'number' ? totalHp : null;
+    const expectedOptional = total != null ? Math.max(0, total - mandatoryHp) : null;
+    let hpStatus: 'ok' | 'error' | 'info' | 'none' = 'none';
+    let hpMessage = '';
+    if (total != null && linkedCourses > 0) {
+      if (mandatoryHp > total) {
+        hpStatus = 'error';
+        hpMessage = `Obligatoriska HP (${mandatoryHp}) överstiger programmets total (${total}).`;
+      } else if (mandatoryHp + optionalHp < total) {
+        hpStatus = 'error';
+        hpMessage = `Obligatoriska (${mandatoryHp}) + valbar pool (${optionalHp}) = ${totalLinkedHp} HP räcker inte till ${total}.`;
+      } else if (optionalHp > 0 && totalLinkedHp > total) {
+        hpStatus = 'info';
+        hpMessage = `Programmet har ${mandatoryHp} HP obligatoriskt och ${optionalHp} HP valbara kurser. Studenten behöver välja ${expectedOptional} HP valbart för att nå ${total} HP.`;
+      } else if (optionalHp === 0 && mandatoryHp !== total) {
+        hpStatus = 'error';
+        hpMessage = `HP-summa (${mandatoryHp}) matchar inte programmets total (${total}).`;
+      } else {
+        hpStatus = 'ok';
+      }
+    }
+    return { linkedCourses, mandatoryHp, optionalHp, totalLinkedHp, activeCount, inactiveCount, expectedOptional, hpStatus, hpMessage };
+  }, [rows, totalHp]);
 
   const addCourse = async (year: number, semester: string) => {
     // Find first course not yet linked
@@ -314,8 +335,8 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
         </div>
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">
-            Obligatorisk HP enligt kurser: <strong className="text-foreground">{obligHp}</strong>
-            {typeof totalHp === 'number' && obligHp !== totalHp && (
+            Totalt länkade HP: <strong className="text-foreground">{stats.totalLinkedHp}</strong>
+            {stats.hpStatus === 'error' && (
               <span className="text-destructive ml-2">(avviker från total HP)</span>
             )}
           </span>
@@ -325,10 +346,18 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
 
       <div className="rounded-md border border-border p-3">
         <h3 className="font-semibold text-sm mb-2">Programstatistik</h3>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 text-sm">
+          <Stat label="Programtotal" value={typeof totalHp === 'number' ? `${totalHp} HP` : '–'} />
+          <Stat label="Obligatoriska HP" value={`${stats.mandatoryHp} HP`} />
+          <Stat label="Valbar kurspool" value={`${stats.optionalHp} HP`} />
+          <Stat
+            label="Valbara HP som behövs"
+            value={stats.expectedOptional != null ? `${stats.expectedOptional} HP` : '–'}
+          />
+          <Stat label="Totalt länkade HP" value={`${stats.totalLinkedHp} HP`} />
           <Stat label="Länkade kurser" value={stats.linkedCourses} />
-          <Stat label="Obligatorisk HP" value={stats.mandatoryHp} />
-          <Stat label="Valbar HP" value={stats.optionalHp} />
+        </div>
+        <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
           <Stat label="Aktiva kurser" value={stats.activeCount} />
           <Stat label="Arkiverade" value={stats.inactiveCount} tone={stats.inactiveCount > 0 ? 'warn' : undefined} />
         </div>
@@ -336,14 +365,18 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
           {stats.linkedCourses === 0 && (
             <p className="text-destructive">⚠ Programmet har inga länkade kurser.</p>
           )}
-          {typeof totalHp === 'number' && stats.linkedCourses > 0 && obligHp !== totalHp && (
-            <p className="text-destructive">⚠ HP-summa ({obligHp}) matchar inte programmets total ({totalHp}).</p>
+          {stats.hpStatus === 'error' && (
+            <p className="text-destructive">⚠ {stats.hpMessage}</p>
+          )}
+          {stats.hpStatus === 'info' && (
+            <p className="text-muted-foreground">ℹ {stats.hpMessage}</p>
           )}
           {stats.inactiveCount > 0 && (
             <p className="text-destructive">⚠ {stats.inactiveCount} länkade kurser är arkiverade/saknas.</p>
           )}
         </div>
       </div>
+
 
       {loading ? (
         <p className="text-sm text-muted-foreground">Laddar kurser…</p>
@@ -423,7 +456,7 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
   );
 }
 
-function Stat({ label, value, tone }: { label: string; value: number; tone?: 'warn' }) {
+function Stat({ label, value, tone }: { label: string; value: number | string; tone?: 'warn' }) {
   return (
     <div className="rounded-md border border-border p-2">
       <div className="text-xs text-muted-foreground">{label}</div>
