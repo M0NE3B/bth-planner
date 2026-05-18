@@ -315,7 +315,13 @@ export async function fetchDbSnapshot(): Promise<DbSnapshot> {
 export interface ImportPlan {
   programs: { insert: JsonProgram[]; update: JsonProgram[]; unchanged: JsonProgram[] };
   courses: { insert: JsonCourse[]; update: JsonCourse[]; unchanged: JsonCourse[] };
-  program_courses: { insert: JsonProgramCourse[]; update: JsonProgramCourse[]; unchanged: JsonProgramCourse[] };
+  program_courses: {
+    insert: JsonProgramCourse[];
+    update: JsonProgramCourse[];
+    unchanged: JsonProgramCourse[];
+    duplicates: JsonProgramCourse[];
+    repeated: JsonProgramCourse[];
+  };
   prerequisites: { insert: JsonPrerequisite[]; duplicates: JsonPrerequisite[]; manual: JsonPrerequisite[] };
   warnings: string[];
   errors: string[];
