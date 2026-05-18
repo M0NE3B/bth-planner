@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   importFromStaticTemplates, previewStaticImport, type ImportPreview, type ImportProgress,
 } from '@/lib/admin';
+import JsonImportCard from './JsonImportCard';
 
 interface Stats {
   courses: number;
