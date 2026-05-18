@@ -284,7 +284,15 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
       const list = map.get(key) ?? [];
       list.push(r); map.set(key, list);
     }
-    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+    // Sort by year (numeric) then semester (HT before VT)
+    return Array.from(map.entries()).sort((a, b) => {
+      const [ay, as] = a[0].split('-');
+      const [by, bs] = b[0].split('-');
+      const yDiff = Number(ay) - Number(by);
+      if (yDiff !== 0) return yDiff;
+      const semOrder = (s: string) => (s === 'HT' ? 0 : s === 'VT' ? 1 : 2);
+      return semOrder(as) - semOrder(bs);
+    });
   }, [rows]);
 
   const stats = useMemo(() => {
@@ -320,22 +328,24 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
     return { linkedCourses, mandatoryHp, optionalHp, totalLinkedHp, activeCount, inactiveCount, expectedOptional, hpStatus, hpMessage };
   }, [rows, totalHp]);
 
-  const addCourse = async (year: number, semester: string) => {
-    // Find first course not yet linked
-    const used = new Set(rows.map((r) => r.course_id));
-    const available = courses.find((c) => !used.has(c.id));
-    if (!available) { toast.error('Alla kurser i katalogen är redan länkade'); return; }
+  const addCourse = async (year: number, semester: string, courseId?: string) => {
+    // Pick provided course, or first one in catalog (duplicates across placements are allowed).
+    const chosen = courseId
+      ? courses.find((c) => c.id === courseId)
+      : (courses[0] ?? null);
+    if (!chosen) { toast.error('Inga kurser i katalogen — importera eller skapa kurser först'); return; }
     try {
       await upsertProgramCourse({
         program_id: program.id,
-        course_id: available.id,
+        course_id: chosen.id,
         year, semester,
         mandatory: true,
         sort_order: rows.filter((r) => r.year === year && r.semester === semester).length,
       });
       void load();
     } catch (e) {
-      toast.error('Kunde inte lägga till kurs');
+      const msg = e instanceof Error ? e.message : '';
+      toast.error(`Kunde inte lägga till kurs${msg ? `: ${msg}` : ''}`);
     }
   };
 
