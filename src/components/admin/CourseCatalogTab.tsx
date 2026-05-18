@@ -28,7 +28,6 @@ export default function CourseCatalogTab() {
   const [courses, setCourses] = useState<CourseRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [showArchived, setShowArchived] = useState(false);
   const [status, setStatus] = useState<'active' | 'archived' | 'all'>('active');
   const [subject, setSubject] = useState<string>('all');
   const [onlyMissingHp, setOnlyMissingHp] = useState(false);
