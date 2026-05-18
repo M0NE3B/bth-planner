@@ -422,3 +422,12 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
     </div>
   );
 }
+
+function Stat({ label, value, tone }: { label: string; value: number; tone?: 'warn' }) {
+  return (
+    <div className="rounded-md border border-border p-2">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className={`font-heading text-lg ${tone === 'warn' ? 'text-destructive' : 'text-foreground'}`}>{value}</div>
+    </div>
+  );
+}
