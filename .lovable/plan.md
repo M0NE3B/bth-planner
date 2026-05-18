@@ -1,114 +1,109 @@
+# JSON catalog import (admin)
 
-# Admin-UI för kurskatalog, program och förkunskaper
+Add a second import option in **Admin → Import & verktyg** alongside the existing "Importera från statiska mallar". The static button stays untouched. No deletes, no user-data backfill, no app switch.
 
-Bygger ett komplett administratörsverktyg som låter en behörig användare hantera den nya databasstrukturen vi just förberett (`courses_catalog`, `programs_catalog`, `program_courses`, `course_prerequisites`) — inbäddat i Inställningar, med engångsimport från de befintliga statiska programmallarna.
+## UX flow
 
-## 1. Åtkomst & säkerhet
+1. New card "Importera från JSON" under existing static-import card in `ImportTab.tsx`.
+2. Two input modes: file upload (`.json`) + paste-into-textarea. Both populate the same parsed state.
+3. "Validera & förhandsgranska" button → runs parsing + validation, opens a preview panel (not a modal — too much content).
+4. Preview shows:
+   - Counts: programs, courses, program-course links, prerequisites — split into **nya** vs **uppdateras** vs **oförändrade**.
+   - Collapsible lists per section showing first ~20 rows + total count.
+   - Separate section "Manuell granskning" listing `custom_text` and unresolved prerequisites.
+   - Warnings list (yellow) and errors list (red).
+5. "Importera nu" button is disabled if errors exist. Confirmation `AlertDialog` before write.
+6. After import: success toast + summary panel (inserted/updated/skipped per entity, warnings carried over).
 
-- Migration: tilldela `admin`-rollen i `user_roles` till användaren med e-post `moneebi.saifi@gmail.com` (om kontot finns).
-- Klient: hook `useIsAdmin()` som läser från `user_roles` via `has_role`-mönstret.
-- Admin-fliken i `SettingsPage` renderas endast om `useIsAdmin()` returnerar `true`. Alla skrivoperationer skyddas dessutom av befintliga RLS-policies ("Admins manage …").
+## Accepted JSON shape
 
-## 2. Placering i UI
+Top-level object, all arrays optional:
 
-Ny flik **"Administration"** i `SettingsPage` (shadcn `Tabs`). Fliken innehåller tre under-sektioner:
+```json
+{
+  "metadata": { "source": "...", "exported_at": "..." },
+  "programs": [
+    { "name": "Civilingenjör i mjukvaruteknik", "total_hp": 300, "active": true }
+  ],
+  "courses": [
+    { "course_code": "DV1654", "course_name": "...", "hp": 6,
+      "subject_area": "Datavetenskap", "level": "Grundnivå",
+      "original_prerequisite_text": "..." }
+  ],
+  "program_courses": [
+    { "program_name": "...", "course_code": "DV1654",
+      "year": 1, "semester": "HT", "period": "1", "mandatory": true, "sort_order": 0 }
+  ],
+  "course_prerequisites": [
+    { "target_course_code": "DV1654",
+      "requirement_type": "completed_course",
+      "required_course_code": "DV1612",
+      "required_hp": null, "required_subject_area": null,
+      "original_text": "DV1612", "logic_group": null }
+  ]
+}
+```
 
-- **Kurskatalog**
-- **Program**
-- **Import & verktyg**
+Field-name tolerance (mapped during parsing):
+- `program` → `program_name`, `code`/`courseCode` → `course_code`, `name`/`courseName` → `course_name`, `credits` → `hp`, `subject`/`huvudområde` → `subject_area`.
+- Programs may be referenced from `program_courses` by `program_name` or `program_id` (id only used if it matches an existing row).
 
-Förkunskaper redigeras inifrån varje kurs i Kurskatalogen (inte som egen sektion) — det är där det är naturligast.
+## Validation rules
 
-## 3. Sektion: Kurskatalog
+Errors (block import):
+- JSON not parseable / top-level not object.
+- `requirement_type` not in the 6 known values.
+- Row missing all natural-key fields (course without `course_code`, program without `name`).
 
-Visar `courses_catalog` i en tabell med:
+Warnings (show, allow import):
+- Course missing `course_name`, `hp`, or `subject_area`.
+- Duplicate `course_code` within the file.
+- `program_courses` row pointing to a program/course not in file *and* not in DB.
+- `course_prerequisites` pointing to a `required_course_code` not in file or DB.
+- `requirement_type = 'custom_text'` (always flagged for manual review).
+- `program_courses` duplicate by (program, course, year, semester, period).
+- Prerequisite duplicate by (target, type, required_course/subject/hp, original_text).
 
-- Sökfält (kod/namn)
-- Filter på huvudområde och nivå
-- Toggle "Visa arkiverade" (`active = false`)
-- Knapp "Ny kurs" → öppnar `Sheet` från höger
+## Upsert behavior (idempotent)
 
-Rader visar: kod, namn, HP, huvudområde, nivå, antal förkunskaper, status. Klick på rad → samma Sheet i redigeringsläge.
+- **Programs**: upsert by `name` (existing `programs_catalog_name_key`). Set `total_hp`, `active`.
+- **Courses**: upsert by `course_code` (existing unique). Update name, hp, subject_area, level, original_prerequisite_text. Never set `active=false` here.
+- **program_courses**: upsert by `(program_id, course_id)` (existing onConflict used by static import). For rows that resolve to the same pair, update year/semester/period/mandatory/sort_order.
+- **course_prerequisites**: dedupe in-memory by composite key `(target, type, required_course_id, required_subject_area, required_hp, original_text)`; then for each target course, fetch existing rows and only insert rows that don't already exist. **No deletes** (unlike `replacePrerequisites` used by the static importer).
 
-**Kursformulär (Sheet):**
-- Fält: `course_code` (unik, valideras), `course_name`, `hp`, `subject_area`, `level`, `original_prerequisite_text`, `active`.
-- Zod-validering.
-- Längst ner: **Förkunskaper** — lista med rader. Varje rad är en `course_prerequisites`-post:
-  - Select för `requirement_type` (de 6 typerna)
-  - Dynamiska fält baserat på typ:
-    - `completed_course` / `attended_course`: combobox över kurser i katalogen
-    - `completed_hp_in_course`: combobox + HP-input
-    - `completed_hp_in_subject`: select över huvudområden + HP-input
-    - `completed_total_hp`: HP-input
-    - `custom_text`: textfält
-  - `original_text` och `logic_group` som kollapsbara avancerade fält
-- "+ Lägg till krav" och radera-ikon per rad.
-- Spara: upsertar kurs + ersätter förkunskapsraderna i en transaktionslik följd (delete-then-insert per kurs).
-- "Arkivera" istället för hård DELETE (sätter `active = false`).
+To diff "nya vs uppdateras", load existing `programs_catalog(name,id)`, `courses_catalog(course_code,id, …fields)`, `program_courses(program_id,course_id,…)`, and existing prerequisite composite keys once during preview.
 
-## 4. Sektion: Program
+## Files to add / change
 
-Lista över `programs_catalog` med namn, total HP, antal kurser, status. "Nytt program"-knapp.
+```text
+src/lib/admin/jsonImport.ts          NEW
+  - parseCatalogJson(text)           → { data, errors }
+  - planJsonImport(data, dbSnapshot) → { plan, warnings, errors, summary }
+  - executeJsonImport(plan)          → { inserted, updated, skipped, warnings }
+  - fetchDbSnapshot()                → existing programs/courses/links/prereqs maps
 
-Klick på program → detaljvy (egen route `/admin/program/:id` eller intern state):
+src/components/admin/JsonImportCard.tsx   NEW
+  - file input + textarea
+  - validate button → preview panel
+  - import button + AlertDialog confirm
+  - summary panel after run
 
-- Header med programnamn, total HP (redigerbart).
-- Tabell över `program_courses` grupperad per år och termin (HT/VT) och period.
-- Per rad: kurs (combobox från katalogen), år, termin, period, obligatorisk (switch), sort_order (pilar upp/ner).
-- "+ Lägg till kurs" längst ned i varje termin-grupp.
-- Sammanfattning: HP per år, total HP, varning om obligatorisk HP ≠ programmets total_hp.
-- "Arkivera program" sätter `active = false`.
+src/components/admin/ImportTab.tsx        EDIT
+  - render existing static-import card unchanged
+  - render <JsonImportCard /> below it
+```
 
-## 5. Sektion: Import & verktyg
+No DB migration needed — existing tables, RLS, and unique constraints cover everything. Admin RLS already gates writes.
 
-- **Importera från statiska mallar**: knapp som läser alla `ProgramTemplate` från `src/lib/programs.ts` och upsertar till databasen.
-  - Visar förhandsgranskning: vilka program som kommer att skapas/uppdateras, antal kurser, antal förkunskaper.
-  - Bekräftelsedialog innan körning.
-  - Använder `course_code` som naturlig nyckel för kurser → ingen duplicering om samma kurs finns i flera program.
-  - Skriver `course_prerequisites` från `requirements` (eller faller tillbaka på legacy `prerequisites: string[]` som `completed_course`).
-  - Idempotent: kan köras flera gånger utan att skapa dubletter.
-  - Progress-toast under körning, slutsammanfattning (X program, Y kurser, Z förkunskaper).
-- **Exportera katalog som JSON** (bonus, lätt att bygga): för backup.
-- **Statistik**: antal kurser, program, kurser utan huvudområde, kurser utan förkunskaper definierade men med originaltext (för att se vad som återstår att strukturera).
+## Out of scope (per request)
 
-## 6. UX-detaljer
+- No CSV import (JSON only this round).
+- No row deletion. No archive/deactivate from JSON.
+- No user-data backfill, no migration tab interaction.
+- No change to dashboard/calendar/risk/student app code paths.
+- No edits to `src/components/ui/*` or generated Supabase files.
 
-- shadcn-komponenter: `Tabs`, `Table`, `Sheet`, `Dialog`, `AlertDialog`, `Select`, `Combobox` (cmdk), `Switch`, `Badge`, `Input`, `Textarea`.
-- `sonner`-toast för feedback. Optimistic updates där det är säkert.
-- Bekräftelsedialog (`AlertDialog`) på alla destruktiva åtgärder.
-- Mobil: Sheet och Dialog är redan responsiva; tabeller får horisontell scroll med en kompakt vy.
-- Behåller dagens navy/blå-stil — inga nya färger.
+## Testing
 
-## 7. Filer som skapas/ändras
-
-**Migration:**
-- Ny migration som inserterar admin-rollen för `moneebi.saifi@gmail.com` (slår upp `user_id` från `auth.users` via `email`; gör inget om kontot inte finns ännu).
-
-**Nya filer:**
-- `src/lib/admin.ts` — write-helpers: `upsertCourse`, `archiveCourse`, `replacePrerequisites`, `upsertProgram`, `upsertProgramCourse`, `removeProgramCourse`, `importFromStaticTemplates`.
-- `src/hooks/useIsAdmin.ts` — läser admin-status.
-- `src/components/admin/AdminPanel.tsx` — wrapper med under-tabs.
-- `src/components/admin/CourseCatalogTab.tsx` — listan + filter.
-- `src/components/admin/CourseEditorSheet.tsx` — kursformulär inkl. förkunskaper.
-- `src/components/admin/PrerequisiteRow.tsx` — en rad i förkunskapslistan.
-- `src/components/admin/ProgramsTab.tsx` — programlista.
-- `src/components/admin/ProgramEditor.tsx` — detaljvy med kurser per år/termin.
-- `src/components/admin/ImportTab.tsx` — importknapp + statistik.
-
-**Ändrade filer:**
-- `src/components/SettingsPage.tsx` — lägger till "Administration"-fliken bakom `useIsAdmin()`.
-
-## 8. Inte med i denna plan
-
-- Ingen ändring av läsvägen i resten av appen — `programs.ts` läser fortfarande statiska mallar. Vi kan i en senare runda byta till `buildProgramTemplateFromCatalog()` med fallback, när du verifierat att importen ser bra ut.
-- Ingen revisionslogg / historik (kan läggas till senare).
-- Ingen bulk-CSV-import (importknappen täcker det vi har idag).
-
-## 9. Teknisk not
-
-- Alla skrivningar går via supabase-klienten; RLS-policyerna ("Admins manage …") gör att icke-admins inte kan skriva även om UI:t skulle exponeras av misstag.
-- För `program_courses` använder vi `UNIQUE(program_id, course_id)` som finns i schemat för upsert-konflikt.
-- För `course_prerequisites` gör vi `delete + insert` per kurs vid spar — enklare än diff och tillräckligt snabbt (typiskt < 10 rader per kurs).
-- Importen körs helt klient-sida i en async loop med progress; ingen edge function behövs.
-
-Säg till om du vill att jag ändrar omfattning eller delar upp i mindre steg innan jag bygger.
+- Unit test `parseCatalogJson` + `planJsonImport` with: valid file, missing fields, duplicate codes, unknown requirement_type, custom_text rows, prereq pointing to missing course.
+- Manual: upload a small one-program file → verify preview counts, run import twice → second run shows 0 inserts, all updates/unchanged.
