@@ -64,6 +64,12 @@ export interface PrerequisiteInput {
   required_subject_area?: string | null;
   original_text?: string | null;
   logic_group?: number | null;
+  required_level?: string | null;
+  course_group_name?: string | null;
+  allowed_program_groups?: string[] | null;
+  allowed_course_codes?: string[] | null;
+  manual_review?: boolean;
+  group_operator?: 'AND' | 'OR' | null;
 }
 
 export async function replacePrerequisites(
@@ -84,8 +90,14 @@ export async function replacePrerequisites(
     required_subject_area: r.required_subject_area?.trim() || null,
     original_text: r.original_text?.trim() || null,
     logic_group: r.logic_group ?? null,
+    required_level: r.required_level?.trim() || null,
+    course_group_name: r.course_group_name?.trim() || null,
+    allowed_program_groups: r.allowed_program_groups && r.allowed_program_groups.length > 0 ? r.allowed_program_groups : null,
+    allowed_course_codes: r.allowed_course_codes && r.allowed_course_codes.length > 0 ? r.allowed_course_codes : null,
+    manual_review: !!r.manual_review,
+    group_operator: r.group_operator ?? null,
   }));
-  const { error } = await supabase.from('course_prerequisites').insert(payload);
+  const { error } = await supabase.from('course_prerequisites').insert(payload as never);
   if (error) throw error;
 }
 
