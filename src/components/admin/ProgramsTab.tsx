@@ -42,6 +42,7 @@ export default function ProgramsTab() {
   const [newName, setNewName] = useState('');
   const [newHp, setNewHp] = useState<number | ''>('');
   const [archiveTarget, setArchiveTarget] = useState<ProgramRow | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ProgramRow | null>(null);
 
   const load = async () => {
     setLoading(true);
