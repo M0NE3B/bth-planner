@@ -112,8 +112,10 @@ export default function SettingsPage({ userId, email, programName, startYear, on
 
   return (
     <div className="max-w-2xl mx-auto md:mt-12 animate-slide-up space-y-4 px-1">
-      <h1 className="font-heading text-2xl font-bold text-foreground">Inställningar</h1>
+  const { isAdmin } = useIsAdmin(userId);
 
+  const settingsContent = (
+    <>
       {/* Account */}
       <Card>
         <CardHeader>
