@@ -62,10 +62,20 @@ export default function CourseCatalogTab() {
 
   useEffect(() => { void load(); }, []);
 
+  const subjects = useMemo(() => {
+    const s = new Set<string>();
+    for (const c of courses) if (c.subject_area?.trim()) s.add(c.subject_area.trim());
+    return Array.from(s).sort();
+  }, [courses]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return courses.filter((c) => {
-      if (!showArchived && !c.active) return false;
+      if (status === 'active' && !c.active) return false;
+      if (status === 'archived' && c.active) return false;
+      if (subject !== 'all' && (c.subject_area ?? '') !== subject) return false;
+      if (onlyMissingHp && Number(c.hp) > 0) return false;
+      if (onlyMissingSubject && (c.subject_area ?? '').trim()) return false;
       if (!q) return true;
       return (
         c.course_code.toLowerCase().includes(q) ||
@@ -73,7 +83,7 @@ export default function CourseCatalogTab() {
         (c.subject_area ?? '').toLowerCase().includes(q)
       );
     });
-  }, [courses, search, showArchived]);
+  }, [courses, search, status, subject, onlyMissingHp, onlyMissingSubject]);
 
   const allCourses = useMemo(
     () => courses.map((c) => ({ id: c.id, course_code: c.course_code, course_name: c.course_name })),
@@ -94,7 +104,7 @@ export default function CourseCatalogTab() {
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-col md:flex-row md:items-center gap-2">
+      <div className="flex flex-col md:flex-row md:items-end gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -104,16 +114,40 @@ export default function CourseCatalogTab() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 px-2">
-            <Switch id="show-arch" checked={showArchived} onCheckedChange={setShowArchived} />
-            <Label htmlFor="show-arch" className="text-sm">Visa arkiverade</Label>
-          </div>
-          <Button size="sm" onClick={() => { setEditing(null); setSheetOpen(true); }} className="gap-1">
-            <Plus className="h-4 w-4" /> Ny kurs
-          </Button>
+        <div className="w-full md:w-48">
+          <Label className="text-xs">Huvudområde</Label>
+          <Select value={subject} onValueChange={setSubject}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Alla</SelectItem>
+              {subjects.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
+        <div className="w-full md:w-36">
+          <Label className="text-xs">Status</Label>
+          <Select value={status} onValueChange={(v) => setStatus(v as 'active' | 'archived' | 'all')}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="active">Aktiva</SelectItem>
+              <SelectItem value="archived">Arkiverade</SelectItem>
+              <SelectItem value="all">Alla</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-2 px-2">
+          <Switch id="m-hp" checked={onlyMissingHp} onCheckedChange={setOnlyMissingHp} />
+          <Label htmlFor="m-hp" className="text-sm">Saknar HP</Label>
+        </div>
+        <div className="flex items-center gap-2 px-2">
+          <Switch id="m-sub" checked={onlyMissingSubject} onCheckedChange={setOnlyMissingSubject} />
+          <Label htmlFor="m-sub" className="text-sm">Saknar område</Label>
+        </div>
+        <Button size="sm" onClick={() => { setEditing(null); setSheetOpen(true); }} className="gap-1">
+          <Plus className="h-4 w-4" /> Ny kurs
+        </Button>
       </div>
+
 
       <div className="rounded-md border border-border overflow-x-auto">
         <Table>
