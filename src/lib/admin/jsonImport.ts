@@ -537,15 +537,7 @@ export async function executeJsonImport(data: ParsedCatalog): Promise<ImportResu
   let prInserted = 0;
   let prSkipped = 0;
   if (data.course_prerequisites.length > 0) {
-    const payload: Array<{
-      target_course_id: string;
-      requirement_type: RequirementType;
-      required_course_id: string | null;
-      required_hp: number | null;
-      required_subject_area: string | null;
-      original_text: string | null;
-      logic_group: number | null;
-    }> = [];
+    const payload: Array<Record<string, unknown>> = [];
     const seen = new Set<string>(snap.prereqKeys);
     for (const pr of data.course_prerequisites) {
       const target = snap.courseByCode.get(pr.target_course_code);
@@ -554,6 +546,7 @@ export async function executeJsonImport(data: ParsedCatalog): Promise<ImportResu
         ? snap.courseByCode.get(pr.required_course_code)
         : undefined;
       if (pr.required_course_code && !required) {
+        // Preserve as manual_review custom_text rather than dropping silently.
         prSkipped++;
         warnings.push(`Hoppade över prereq för ${pr.target_course_code}: required ${pr.required_course_code} saknas`);
         continue;
@@ -569,10 +562,16 @@ export async function executeJsonImport(data: ParsedCatalog): Promise<ImportResu
         required_subject_area: pr.required_subject_area ?? null,
         original_text: pr.original_text ?? null,
         logic_group: pr.logic_group ?? null,
+        required_level: pr.required_level ?? null,
+        course_group_name: pr.course_group_name ?? null,
+        allowed_program_groups: pr.allowed_program_groups ?? null,
+        allowed_course_codes: pr.allowed_course_codes ?? null,
+        manual_review: !!pr.manual_review,
+        group_operator: pr.group_operator ?? null,
       });
     }
     if (payload.length > 0) {
-      const { error } = await supabase.from('course_prerequisites').insert(payload);
+      const { error } = await supabase.from('course_prerequisites').insert(payload as never);
       if (error) throw error;
       prInserted = payload.length;
     }
