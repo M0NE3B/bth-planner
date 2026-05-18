@@ -444,14 +444,35 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
       </div>
 
 
+      <div className="rounded-md border border-border p-3 flex flex-wrap items-end gap-2">
+        <div>
+          <Label className="text-xs">År</Label>
+          <Input type="number" min={1} max={6} className="w-20" value={addYear}
+            onChange={(e) => setAddYear(Math.max(1, Math.min(6, Number(e.target.value) || 1)))} />
+        </div>
+        <div>
+          <Label className="text-xs">Termin</Label>
+          <Select value={addSemester} onValueChange={setAddSemester}>
+            <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="HT">HT</SelectItem>
+              <SelectItem value="VT">VT</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <Button size="sm" onClick={() => addCourse(addYear, addSemester)} className="gap-1">
+          <Plus className="h-4 w-4" /> Lägg till kurs i År {addYear} · {addSemester}
+        </Button>
+        <p className="text-xs text-muted-foreground ml-auto">
+          Tips: byt kurs i raden efter att den lagts till. Samma kurs kan länkas till flera placeringar (t.ex. valbara kurser).
+        </p>
+      </div>
+
       {loading ? (
         <p className="text-sm text-muted-foreground">Laddar kurser…</p>
       ) : grouped.length === 0 ? (
         <div className="text-center py-6 space-y-3 border border-dashed border-border rounded-md">
-          <p className="text-sm text-muted-foreground">Inga kurser länkade ännu.</p>
-          <Button size="sm" onClick={() => addCourse(1, 'HT')} className="gap-1">
-            <Plus className="h-4 w-4" /> Lägg till första kursen
-          </Button>
+          <p className="text-sm text-muted-foreground">Inga kurser länkade ännu. Använd verktyget ovan för att lägga till.</p>
         </div>
       ) : grouped.map(([key, list]) => {
         const [yearStr, semester] = key.split('-');
