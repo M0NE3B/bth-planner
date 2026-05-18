@@ -149,24 +149,44 @@ export default function DataQualityTab() {
       items: pcBad,
     });
 
-    // HP mismatch
-    const hpByProgram = new Map<string, number>();
+    // HP mismatch — only flag as error when mandatory > total, or mandatory + optional pool < total
+    const hpAgg = new Map<string, { mandatory: number; optional: number }>();
     for (const r of pc) {
       const c = courseById.get(r.course_id);
-      hpByProgram.set(r.program_id, (hpByProgram.get(r.program_id) ?? 0) + Number(c?.hp ?? 0));
+      const cur = hpAgg.get(r.program_id) ?? { mandatory: 0, optional: 0 };
+      const hp = Number(c?.hp ?? 0);
+      if (r.mandatory) cur.mandatory += hp; else cur.optional += hp;
+      hpAgg.set(r.program_id, cur);
     }
-    const hpMismatch: string[] = [];
+    const hpErrors: string[] = [];
+    const hpInfo: string[] = [];
     for (const p of programs) {
       if (!p.active || p.total_hp == null) continue;
-      const sum = hpByProgram.get(p.id) ?? 0;
-      if (sum !== Number(p.total_hp)) {
-        hpMismatch.push(`${p.name}: ${sum} HP länkade vs ${p.total_hp} HP totalt`);
+      const agg = hpAgg.get(p.id) ?? { mandatory: 0, optional: 0 };
+      const total = Number(p.total_hp);
+      const linked = agg.mandatory + agg.optional;
+      const expectedOptional = Math.max(0, total - agg.mandatory);
+      if (agg.mandatory > total) {
+        hpErrors.push(`${p.name}: obligatoriska HP (${agg.mandatory}) överstiger programmets total (${total})`);
+      } else if (agg.mandatory + agg.optional < total) {
+        hpErrors.push(`${p.name}: obligatoriska (${agg.mandatory}) + valbar pool (${agg.optional}) = ${linked} HP räcker inte till ${total}`);
+      } else if (linked > total && agg.optional > 0) {
+        hpInfo.push(`${p.name}: ${agg.mandatory} HP obligatoriskt + ${agg.optional} HP valbar pool. Studenten behöver välja ${expectedOptional} HP valbart för att nå ${total}.`);
+      } else if (linked !== total && agg.optional === 0) {
+        hpErrors.push(`${p.name}: ${linked} HP länkade vs ${total} HP totalt (inga valbara kurser)`);
       }
     }
     result.push({
       key: 'hp-mismatch',
       title: 'HP-summa stämmer inte med programmets total',
-      items: hpMismatch,
+      description: 'Endast fel när obligatoriska HP > total eller obligatoriska + valbar pool < total.',
+      items: hpErrors,
+    });
+    result.push({
+      key: 'hp-info',
+      title: 'Program med valbar kurspool (informativt)',
+      description: 'Total länkad HP överstiger programtotalen eftersom valbara kurser ingår som en pool.',
+      items: hpInfo,
     });
 
     return result;
