@@ -57,6 +57,7 @@ export default function PrerequisitesTab() {
     return rows.filter((r) => {
       if (type !== 'all' && r.requirement_type !== type) return false;
       if (onlyCustom && r.requirement_type !== 'custom_text') return false;
+      if (onlyManual && !r.manual_review) return false;
       if (onlyMissing) {
         const needsCourse = r.requirement_type === 'completed_course'
           || r.requirement_type === 'attended_course'
