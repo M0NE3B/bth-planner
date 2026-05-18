@@ -101,6 +101,19 @@ export default function ProgramsTab() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteProgram(deleteTarget.id);
+      toast.success('Programmet borttaget');
+      setDeleteTarget(null);
+      void load();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '';
+      toast.error(`Kunde inte ta bort programmet${msg ? `: ${msg}` : ''}`);
+    }
+  };
+
   if (activeProgram) {
     return (
       <ProgramDetail
