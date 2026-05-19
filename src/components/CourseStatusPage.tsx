@@ -854,11 +854,12 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
 
       // Seed missing mandatory catalog courses into user_courses (idempotent)
       const existingCodes = new Set(courses.map(c => c.course_code.toUpperCase()));
+      const dismissed = dismissedCodesRef.current;
       const seen = new Set<string>();
       const missingMandatory = allRows.filter(r => {
         if (!r.mandatory) return false;
         const code = r.course!.course_code.toUpperCase();
-        if (existingCodes.has(code) || seen.has(code)) return false;
+        if (existingCodes.has(code) || seen.has(code) || dismissed.has(code)) return false;
         seen.add(code);
         return true;
       });
