@@ -32,9 +32,11 @@ export default function CourseCatalogTab() {
   const [subject, setSubject] = useState<string>('all');
   const [onlyMissingHp, setOnlyMissingHp] = useState(false);
   const [onlyMissingSubject, setOnlyMissingSubject] = useState(false);
+  const [prereqFilter, setPrereqFilter] = useState<'all' | 'structured' | 'manual' | 'none'>('all');
   const [editing, setEditing] = useState<CatalogCourse | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [archiveTarget, setArchiveTarget] = useState<CourseRow | null>(null);
+  const [manualByCourse, setManualByCourse] = useState<Map<string, { total: number; manual: number }>>(new Map());
 
   const load = async () => {
     setLoading(true);
