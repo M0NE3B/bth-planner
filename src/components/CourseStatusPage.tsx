@@ -734,17 +734,18 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
 
   const prereqMap = useMemo(() => buildPrereqMap(programTemplate), [programTemplate]);
   const blocksMap = useMemo(() => {
-    // Only count blockers that exist in the student's own plan
+    // Only count blockers that exist in the student's own plan, deduped.
     const planCodes = new Set(courses.map(c => c.course_code));
+    const dedupe = (list: string[]) => Array.from(new Set(list));
     const m = new Map<string, string[]>();
     for (const [code, list] of catalog.blocksByCode) {
-      const f = filterPlanBlocks(list, planCodes);
+      const f = dedupe(filterPlanBlocks(list, planCodes));
       if (f.length > 0) m.set(code, f);
     }
     const staticBlocks = buildBlocksMap(programTemplate);
     for (const [code, list] of staticBlocks) {
       if (m.has(code)) continue;
-      const f = filterPlanBlocks(list, planCodes);
+      const f = dedupe(filterPlanBlocks(list, planCodes));
       if (f.length > 0) m.set(code, f);
     }
     return m;

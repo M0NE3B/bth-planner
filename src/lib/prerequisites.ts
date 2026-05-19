@@ -330,13 +330,19 @@ export function evaluateRequirement(
     case 'completed_total_hp': {
       const have = totalCompletedHp(ctx);
       const met = have + 1e-6 >= req.hp;
+      // Original text from the course plan often clarifies *what* the HP
+      // requirement is about (e.g. "Matematisk statistik", "programmering").
+      // Show a short snippet so the rule isn't ambiguous in the UI.
+      const ctxSnippet = (req.originalText || '').trim();
+      const short = ctxSnippet.length > 90 ? ctxSnippet.slice(0, 87) + '…' : ctxSnippet;
+      const suffix = short ? ` – ${short}` : '';
       return {
         requirement: req,
         fulfilled: met,
         severity: met ? 'met' : have > 0 ? 'soft' : 'hard',
         message: met
-          ? `Minst ${req.hp} HP totalt avklarade`
-          : `Kräver minst ${req.hp} avklarade HP totalt`,
+          ? `Minst ${req.hp} HP totalt avklarade${suffix}`
+          : `Kräver minst ${req.hp} avklarade HP totalt${suffix}`,
         progress: { current: have, required: req.hp },
       };
     }
@@ -469,9 +475,17 @@ export function evaluateCourseRequirements(
     });
   }
 
-  const unmet = results.filter(r => !r.fulfilled);
+  // Dedupe identical messages (data often has duplicate prereq rows from
+  // imports — students shouldn't see the same rule listed 3 times).
+  const seen = new Set<string>();
+  const deduped = results.filter(r => {
+    if (seen.has(r.message)) return false;
+    seen.add(r.message);
+    return true;
+  });
+  const unmet = deduped.filter(r => !r.fulfilled);
   return {
-    results,
+    results: deduped,
     unmet,
     hardUnmet: unmet.filter(r => r.severity === 'hard'),
     softUnmet: unmet.filter(r => r.severity === 'soft'),
