@@ -731,7 +731,7 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
       .slice(0, 50);
   }, [availableCourses, addSearch]);
 
-  const catalog = useCatalogPrereqs();
+  const catalog = catalogForList;
 
   const prereqMap = useMemo(() => buildPrereqMap(programTemplate), [programTemplate]);
   const blocksMap = useMemo(() => {
