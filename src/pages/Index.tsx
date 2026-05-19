@@ -139,7 +139,10 @@ export default function Index() {
         {showIntro && <IntroAnimation onDone={() => setShowIntro(false)} />}
         <CourseStatusOnboardingPage
           userId={session.user.id}
-          onComplete={() => checkProfile(session.user.id)}
+          onComplete={async () => {
+            navigate('/', { replace: true });
+            await checkProfile(session.user.id);
+          }}
         />
       </>
     );
