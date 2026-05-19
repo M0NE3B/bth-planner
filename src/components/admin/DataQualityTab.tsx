@@ -264,7 +264,7 @@ export default function DataQualityTab() {
               ) : (
                 <ul className="text-xs space-y-1 max-h-60 overflow-y-auto">
                   {g.items.slice(0, 50).map((it, i) => (
-                    <li key={i} className="font-mono break-words">{it}</li>
+                    <li key={`${it}-${i}`} className="font-mono break-words">{it}</li>
                   ))}
                   {g.items.length > 50 && (
                     <li className="text-muted-foreground italic">… och {g.items.length - 50} till</li>
