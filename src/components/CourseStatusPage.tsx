@@ -305,12 +305,14 @@ function PrereqInfo({
 }
 
 function SubtaskRow({
-  sub, onToggle, onDelete,
+  sub, onToggle, onDelete, onSetDate,
 }: {
   sub: Subtask;
   onToggle: (s: Subtask) => void;
   onDelete: (s: Subtask) => void;
+  onSetDate: (s: Subtask, date: string) => void;
 }) {
+  const [pickerOpen, setPickerOpen] = useState(false);
   return (
     <div className="flex items-center gap-2 group py-1">
       <button onClick={() => onToggle(sub)} className="shrink-0">
@@ -325,8 +327,33 @@ function SubtaskRow({
         <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
           <span>{SUBTASK_TYPE_LABEL[sub.type] || SUBTASK_TYPE_LABEL.assignment}</span>
           {sub.due_date && <span>• 📅 {sub.due_date}</span>}
-          {sub.hp > 0 && <span>• {sub.hp} hp</span>}
-          {sub.event_id && <span>• 📌 I kalendern</span>}
+          {sub.hp > 0 && <span>• {formatHp(sub.hp)} hp</span>}
+          {!sub.due_date && (
+            <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+                >
+                  • Lägg till datum
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  locale={sv}
+                  weekStartsOn={1}
+                  initialFocus
+                  onSelect={(d) => {
+                    if (d) {
+                      onSetDate(sub, format(d, 'yyyy-MM-dd'));
+                      setPickerOpen(false);
+                    }
+                  }}
+                />
+              </PopoverContent>
+            </Popover>
+          )}
         </div>
       </div>
       <button
