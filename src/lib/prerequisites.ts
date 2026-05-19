@@ -475,9 +475,17 @@ export function evaluateCourseRequirements(
     });
   }
 
-  const unmet = results.filter(r => !r.fulfilled);
+  // Dedupe identical messages (data often has duplicate prereq rows from
+  // imports — students shouldn't see the same rule listed 3 times).
+  const seen = new Set<string>();
+  const deduped = results.filter(r => {
+    if (seen.has(r.message)) return false;
+    seen.add(r.message);
+    return true;
+  });
+  const unmet = deduped.filter(r => !r.fulfilled);
   return {
-    results,
+    results: deduped,
     unmet,
     hardUnmet: unmet.filter(r => r.severity === 'hard'),
     softUnmet: unmet.filter(r => r.severity === 'soft'),
