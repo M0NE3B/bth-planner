@@ -6,11 +6,11 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { AlertTriangle, CheckCircle2, Database, Play, RefreshCw } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Database, Play, RefreshCw, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import {
-  fetchMigrationReport, runCatalogBackfill,
-  type MigrationReport, type BackfillResult,
+  fetchMigrationReport, runCatalogBackfill, runExistingUsersSync,
+  type MigrationReport, type BackfillResult, type UserSyncResult,
 } from '@/lib/catalogCompat';
 
 export default function MigrationTab() {
