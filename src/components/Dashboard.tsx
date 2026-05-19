@@ -693,6 +693,9 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
           hp: Number(s.hp) || 0,
         }))}
       />
+      </div>
+
+
 
 
       {/* Detail modal */}
