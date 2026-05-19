@@ -31,7 +31,7 @@ import { useCatalogPrereqs, isGymnasiumRequirement, cleanOriginalText, filterPla
 import CourseInfoPopover from '@/components/CourseInfoPopover';
 
 const PREREQ_TOOLTIP =
-  'Förkunskapskrav kan betyda olika saker: en kurs kan behöva vara avklarad, påbörjad/genomgången, eller kräva ett visst antal HP inom en kurs eller ett huvudområde.';
+  'Förkunskapskrav kan se ut på olika sätt: en tidigare kurs kan behöva vara avklarad (godkänt slutbetyg) eller genomgången/påbörjad (deltagit men inte nödvändigtvis klar), eller så krävs ett visst antal HP inom en kurs eller inom ett huvudområde.';
 
 interface CourseStatusPageProps {
   userId: string;
