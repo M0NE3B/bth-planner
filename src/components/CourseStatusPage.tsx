@@ -8,6 +8,11 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { DateInput } from '@/components/ui/date-input';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { format } from 'date-fns';
+import { sv } from 'date-fns/locale';
+import { formatHp } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -209,7 +214,7 @@ function AddCourseDialog({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-sm font-semibold text-foreground">{course.code}</span>
-                      <Badge variant="outline" className="text-xs">{course.hp} hp</Badge>
+                      <Badge variant="outline" className="text-xs">{formatHp(course.hp)} hp</Badge>
                     </div>
                     <p className="text-sm text-muted-foreground truncate">{course.name}</p>
                   </div>
@@ -305,12 +310,14 @@ function PrereqInfo({
 }
 
 function SubtaskRow({
-  sub, onToggle, onDelete,
+  sub, onToggle, onDelete, onSetDate,
 }: {
   sub: Subtask;
   onToggle: (s: Subtask) => void;
   onDelete: (s: Subtask) => void;
+  onSetDate: (s: Subtask, date: string) => void;
 }) {
+  const [pickerOpen, setPickerOpen] = useState(false);
   return (
     <div className="flex items-center gap-2 group py-1">
       <button onClick={() => onToggle(sub)} className="shrink-0">
@@ -325,8 +332,33 @@ function SubtaskRow({
         <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
           <span>{SUBTASK_TYPE_LABEL[sub.type] || SUBTASK_TYPE_LABEL.assignment}</span>
           {sub.due_date && <span>• 📅 {sub.due_date}</span>}
-          {sub.hp > 0 && <span>• {sub.hp} hp</span>}
-          {sub.event_id && <span>• 📌 I kalendern</span>}
+          {sub.hp > 0 && <span>• {formatHp(sub.hp)} hp</span>}
+          {!sub.due_date && (
+            <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+                >
+                  • Lägg till datum
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  locale={sv}
+                  weekStartsOn={1}
+                  initialFocus
+                  onSelect={(d) => {
+                    if (d) {
+                      onSetDate(sub, format(d, 'yyyy-MM-dd'));
+                      setPickerOpen(false);
+                    }
+                  }}
+                />
+              </PopoverContent>
+            </Popover>
+          )}
         </div>
       </div>
       <button
@@ -404,7 +436,7 @@ function SubtasksSection({
   course, courseSubtasks, isExpanded, onToggleExpanded,
   newText, newDate, newHp, newType,
   setNewText, setNewDate, setNewHp, setNewType,
-  onToggleSubtask, onDeleteSubtask, onAddSubtask,
+  onToggleSubtask, onDeleteSubtask, onAddSubtask, onSetSubtaskDate,
 }: {
   course: UserCourse;
   courseSubtasks: Subtask[];
@@ -421,6 +453,7 @@ function SubtasksSection({
   onToggleSubtask: (s: Subtask) => void;
   onDeleteSubtask: (s: Subtask) => void;
   onAddSubtask: (courseId: string) => void;
+  onSetSubtaskDate: (s: Subtask, date: string) => void;
 }) {
   return (
     <Collapsible open={isExpanded} onOpenChange={() => onToggleExpanded(course.id)}>
@@ -432,7 +465,7 @@ function SubtasksSection({
       </CollapsibleTrigger>
       <CollapsibleContent className="mt-2 space-y-1.5">
         {courseSubtasks.map(sub => (
-          <SubtaskRow key={sub.id} sub={sub} onToggle={onToggleSubtask} onDelete={onDeleteSubtask} />
+          <SubtaskRow key={sub.id} sub={sub} onToggle={onToggleSubtask} onDelete={onDeleteSubtask} onSetDate={onSetSubtaskDate} />
         ))}
         <NewSubtaskForm
           courseId={course.id}
@@ -468,6 +501,7 @@ interface CourseCardProps {
   onToggleSubtask: (s: Subtask) => void;
   onDeleteSubtask: (s: Subtask) => void;
   onAddSubtask: (courseId: string) => void;
+  onSetSubtaskDate: (s: Subtask, date: string) => void;
 }
 
 function CourseCard(props: CourseCardProps) {
@@ -477,7 +511,7 @@ function CourseCard(props: CourseCardProps) {
     newText, newDate, newHp, newType,
     onUpdateStatus, onDelete, onToggleExpanded,
     setNewText, setNewDate, setNewHp, setNewType,
-    onToggleSubtask, onDeleteSubtask, onAddSubtask,
+    onToggleSubtask, onDeleteSubtask, onAddSubtask, onSetSubtaskDate,
   } = props;
 
   const completedSubs = courseSubtasks.filter(s => s.completed).length;
@@ -513,7 +547,7 @@ function CourseCard(props: CourseCardProps) {
               </CourseInfoPopover>
               <span className="text-foreground">{course.course_name}</span>
               <span className="text-muted-foreground" aria-hidden="true">·</span>
-              <span className="text-muted-foreground">{course.hp} HP</span>
+              <span className="text-muted-foreground">{formatHp(course.hp)} HP</span>
               {courseSubtasks.length > 0 && (
                 <Badge variant="secondary" className="text-xs">
                   {completedSubs}/{courseSubtasks.length} delmoment
@@ -566,6 +600,7 @@ function CourseCard(props: CourseCardProps) {
           onToggleSubtask={onToggleSubtask}
           onDeleteSubtask={onDeleteSubtask}
           onAddSubtask={onAddSubtask}
+          onSetSubtaskDate={onSetSubtaskDate}
         />
       </CardContent>
     </Card>
@@ -597,6 +632,7 @@ interface YearSectionProps {
   onToggleSubtask: (s: Subtask) => void;
   onDeleteSubtask: (s: Subtask) => void;
   onAddSubtask: (courseId: string) => void;
+  onSetSubtaskDate: (s: Subtask, date: string) => void;
 }
 
 function YearSection(props: YearSectionProps) {
@@ -606,7 +642,7 @@ function YearSection(props: YearSectionProps) {
     blocksMap, courseNameMap, subjectMap, originalReqMap, getRequirementResults,
     onUpdateStatus, onDelete, onToggleExpanded,
     setNewSubtaskText, setNewSubtaskDate, setNewSubtaskHp, setNewSubtaskType,
-    onToggleSubtask, onDeleteSubtask, onAddSubtask,
+    onToggleSubtask, onDeleteSubtask, onAddSubtask, onSetSubtaskDate,
   } = props;
 
   const yearProgress = stats && stats.total > 0
@@ -617,7 +653,7 @@ function YearSection(props: YearSectionProps) {
     <div className="mb-6">
       <div className="flex items-center justify-between mb-3">
         <h3 className="font-heading font-semibold text-foreground">År {year}</h3>
-        <span className="text-xs text-muted-foreground">{stats?.completed}/{stats?.total} HP ({yearProgress}%)</span>
+        <span className="text-xs text-muted-foreground">{formatHp(stats?.completed ?? 0)}/{formatHp(stats?.total ?? 0)} HP ({yearProgress}%)</span>
       </div>
       <Progress value={yearProgress} className="h-1.5 mb-3" />
       <div className="space-y-2">
@@ -646,6 +682,7 @@ function YearSection(props: YearSectionProps) {
             onToggleSubtask={onToggleSubtask}
             onDeleteSubtask={onDeleteSubtask}
             onAddSubtask={onAddSubtask}
+            onSetSubtaskDate={onSetSubtaskDate}
           />
         ))}
       </div>
@@ -1154,6 +1191,25 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
     }
   };
 
+  const addDateToSubtask = async (subtask: Subtask, dueDate: string) => {
+    if (!dueDate) return;
+    const course = courses.find(c => c.id === subtask.course_id);
+    let eventId = subtask.event_id;
+    if (!eventId && course) {
+      eventId = await createLinkedEvent(subtask.title, dueDate, course, subtask.type, subtask.hp);
+    } else if (eventId) {
+      await supabase.from('study_events').update({ due_date: dueDate }).eq('id', eventId);
+    }
+    const { error } = await supabase.from('course_subtasks')
+      .update({ due_date: dueDate, event_id: eventId }).eq('id', subtask.id);
+    if (error) {
+      toast.error('Kunde inte spara datum');
+      return;
+    }
+    setSubtasks(prev => prev.map(s => s.id === subtask.id ? { ...s, due_date: dueDate, event_id: eventId } : s));
+    toast.success('Datum tillagt');
+  };
+
   const getPrereqStatus = (courseCode: string): PrereqStatus | null => {
     const prereqs = prereqMap.get(courseCode);
     if (!prereqs || prereqs.length === 0) return null;
@@ -1360,6 +1416,7 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
                   onToggleSubtask={toggleSubtask}
                   onDeleteSubtask={(s) => setPendingSubtaskDelete(s)}
                   onAddSubtask={handleAddSubtask}
+                  onSetSubtaskDate={addDateToSubtask}
                 />
                 {showElectivePrompt && (
                   <div className="mb-3 -mt-2 rounded-md border border-warning/40 bg-warning/10 p-3 flex items-start gap-2">
@@ -1394,7 +1451,7 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
                           </CourseInfoPopover>
                           <span className="text-muted-foreground">·</span>
                           <span className="text-foreground flex-1 min-w-0 truncate">{e.name}</span>
-                          <Badge variant="outline" className="text-xs">{e.hp} HP</Badge>
+                          <Badge variant="outline" className="text-xs">{formatHp(e.hp)} HP</Badge>
                           <Button size="sm" variant="outline" className="h-7 gap-1" onClick={() => addElective(e)}>
                             <Plus className="h-3 w-3" /> Lägg till
                           </Button>

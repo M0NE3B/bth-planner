@@ -20,6 +20,7 @@ import { EVENT_TYPE_LABEL as TYPE_LABEL, EVENT_STATUS_LABEL as STATUS_LABEL, COU
 import { useCatalogPrereqs } from '@/lib/useCatalogPrereqs';
 import { computeHpUnlockMap, computeUnlockBonus, type UnlockEntry } from '@/lib/hpUnlock';
 import { resolveSubject, type EvalContext } from '@/lib/prerequisites';
+import { formatHp } from '@/lib/utils';
 
 interface DashboardProps {
   userId: string;
@@ -535,7 +536,7 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
         <CardContent className="space-y-4">
           <div>
             <div className="flex items-baseline justify-between mb-2">
-              <span className="text-3xl font-heading font-bold text-foreground">{displayedCompletedHp} <span className="text-lg text-muted-foreground font-normal">/ {totalHp} HP</span></span>
+              <span className="text-3xl font-heading font-bold text-foreground">{formatHp(displayedCompletedHp)} <span className="text-lg text-muted-foreground font-normal">/ {formatHp(totalHp)} HP</span></span>
               <span className="text-sm font-semibold text-primary">{progressPercent}%</span>
             </div>
             <Progress value={progressPercent} className="h-3" />
@@ -546,7 +547,7 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
               {hpByYear.map(({ year, completed, total }) => (
                 <div key={year} className="text-center p-2 rounded-lg bg-muted/50">
                   <p className="text-xs text-muted-foreground mb-1">År {year}</p>
-                  <p className="font-heading font-bold text-sm text-foreground">{completed}/{total}</p>
+                  <p className="font-heading font-bold text-sm text-foreground">{formatHp(completed)}/{formatHp(total)}</p>
                   <Progress value={total > 0 ? (completed / total) * 100 : 0} className="h-1.5 mt-1" />
                 </div>
               ))}
@@ -632,7 +633,7 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
                         {TYPE_LABEL[event.event_type] || event.event_type}
                       </Badge>
                       {hp > 0 && (
-                        <Badge variant="outline" className="text-xs">{hp} HP</Badge>
+                        <Badge variant="outline" className="text-xs">{formatHp(hp)} HP</Badge>
                       )}
                     </div>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -699,7 +700,7 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
                   <Badge variant="secondary">{TYPE_LABEL[selected.event_type] || selected.event_type}</Badge>
                   {selected.course_code && <Badge variant="outline">{selected.course_code}</Badge>}
                   {getEventHp(selected) > 0 && (
-                    <Badge variant="outline">{getEventHp(selected)} HP</Badge>
+                    <Badge variant="outline">{formatHp(getEventHp(selected))} HP</Badge>
                   )}
                   <Badge variant={selected.status === 'complete' ? 'default' : 'secondary'}>
                     {STATUS_LABEL[selected.status] || selected.status}
@@ -870,7 +871,7 @@ function MetricDetailDialog({
               <div className="flex items-center gap-2 flex-wrap mb-1">
                 <span className="font-semibold text-sm text-foreground">{e.title}</span>
                 <Badge variant="secondary" className="text-xs">{TYPE_LABEL[e.event_type] || e.event_type}</Badge>
-                {hp > 0 && <Badge variant="outline" className="text-xs">{hp} HP</Badge>}
+                {hp > 0 && <Badge variant="outline" className="text-xs">{formatHp(hp)} HP</Badge>}
                 <Badge variant={e.status === 'complete' ? 'default' : 'secondary'} className="text-xs">
                   {STATUS_LABEL[e.status] || e.status}
                 </Badge>
@@ -895,7 +896,7 @@ function MetricDetailDialog({
           <li key={c.id} className="rounded-md border p-3">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-mono text-sm font-semibold text-foreground">{c.course_code}</span>
-              <Badge variant="outline" className="text-xs">{c.hp} HP</Badge>
+              <Badge variant="outline" className="text-xs">{formatHp(c.hp)} HP</Badge>
               <Badge variant="outline" className="text-xs">År {c.year}</Badge>
             </div>
             {c.course_name && <p className="text-sm text-muted-foreground mt-1">{c.course_name}</p>}
