@@ -33,6 +33,77 @@ interface PCRow extends CatalogProgramCourse {
   course: CatalogCourse;
 }
 
+interface RowsProps {
+  loading: boolean;
+  programs: ProgramRow[];
+  onOpen: (p: ProgramRow) => void;
+  onArchive: (p: ProgramRow) => void;
+  onDelete: (p: ProgramRow) => void;
+}
+
+function renderProgramRows({ loading, programs, onOpen, onArchive, onDelete }: RowsProps) {
+  if (loading) {
+    return (
+      <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">Laddar…</TableCell></TableRow>
+    );
+  }
+  if (programs.length === 0) {
+    return (
+      <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">Inga program ännu.</TableCell></TableRow>
+    );
+  }
+  return programs.map((p) => {
+    const open = () => onOpen(p);
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLTableRowElement>) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        open();
+      }
+    };
+    return (
+      <TableRow
+        key={p.id}
+        role="button"
+        tabIndex={0}
+        aria-label={`Öppna program ${p.name}`}
+        className="cursor-pointer hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        onClick={open}
+        onKeyDown={handleKeyDown}
+      >
+        <TableCell className="font-medium">{p.name}</TableCell>
+        <TableCell>{p.course_count}</TableCell>
+        <TableCell>{p.obligatorisk_hp}</TableCell>
+        <TableCell>{p.total_hp ?? '–'}</TableCell>
+        <TableCell>
+          {p.active ? <Badge variant="secondary">Aktiv</Badge> : <Badge variant="outline">Arkiverad</Badge>}
+        </TableCell>
+        <TableCell>
+          <div
+            className="flex items-center justify-end gap-1"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+            role="presentation"
+          >
+            <Button variant="ghost" size="sm" onClick={() => onArchive(p)}>
+              {p.active ? 'Arkivera' : 'Återaktivera'}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={() => onDelete(p)}
+              title="Ta bort program"
+              aria-label={`Ta bort program ${p.name}`}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </TableCell>
+      </TableRow>
+    );
+  });
+}
+
 export default function ProgramsTab() {
   const [programs, setPrograms] = useState<ProgramRow[]>([]);
   const [courses, setCourses] = useState<CatalogCourse[]>([]);
