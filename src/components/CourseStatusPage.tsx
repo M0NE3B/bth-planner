@@ -682,6 +682,7 @@ function YearSection(props: YearSectionProps) {
             onToggleSubtask={onToggleSubtask}
             onDeleteSubtask={onDeleteSubtask}
             onAddSubtask={onAddSubtask}
+            onSetSubtaskDate={onSetSubtaskDate}
           />
         ))}
       </div>
