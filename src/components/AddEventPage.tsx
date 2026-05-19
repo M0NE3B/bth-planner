@@ -120,18 +120,12 @@ export default function AddEventPage({ userId }: AddEventPageProps) {
 
             <div>
               <Label htmlFor="course">Kurs</Label>
-              <Select value={courseCode} onValueChange={setCourseCode}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Välj kurs" />
-                </SelectTrigger>
-                <SelectContent>
-                  {courses.map(c => (
-                    <SelectItem key={c.id} value={c.course_code}>
-                      {c.course_code} - {c.course_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <CourseCodeCombobox
+                id="course"
+                value={courseCode}
+                onChange={setCourseCode}
+                options={courses}
+              />
             </div>
 
             <div>
