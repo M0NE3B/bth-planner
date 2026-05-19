@@ -252,7 +252,7 @@ export default function RiskOverview({
             </PopoverTrigger>
             <PopoverContent side="bottom" align="start" className="w-72 text-sm">
               Riskbilden baseras på ditt program, startår, kursstatus och förkunskapskrav från kurskatalogen.
-              Påbörjade kurser räknas inte som spärrade. Krav märkta "manuell kontroll" stoppar inte automatiskt.
+              Påbörjade kurser räknas inte som spärrade. Allt utvärderas automatiskt utifrån dina HP och kursstatus.
             </PopoverContent>
           </Popover>
         </CardTitle>
