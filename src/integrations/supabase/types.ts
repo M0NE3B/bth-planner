@@ -361,6 +361,36 @@ export type Database = {
         }
         Relationships: []
       }
+      feedback: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          status: string
+          subject: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          status?: string
+          subject: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          status?: string
+          subject?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       order_messages: {
         Row: {
           body: string
@@ -693,6 +723,20 @@ export type Database = {
           created_at: string
           display_name: string
           email: string
+          user_id: string
+        }[]
+      }
+      list_feedback: {
+        Args: never
+        Returns: {
+          created_at: string
+          display_name: string
+          email: string
+          id: string
+          message: string
+          status: string
+          subject: string
+          updated_at: string
           user_id: string
         }[]
       }
