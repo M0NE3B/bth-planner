@@ -258,14 +258,13 @@ export default function RiskOverview({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
           <MetricCard icon={<BookOpen className="h-4 w-4 text-muted-foreground" />} label="Ej avklarade kurser" value={overdueCourses.length} onClick={() => setMetric('overdue')} />
           <MetricCard icon={<AlertTriangle className="h-4 w-4 text-warning" />} label="Saknade förkunskaper" value={missingList.length} emphasize={missingList.length > 0} onClick={() => setMetric('missing')} />
           <MetricCard icon={<Lock className="h-4 w-4 text-destructive" />} label="Spärrade kurser" value={blockedAnalyses.length} emphasize={blockedAnalyses.length > 0} onClick={() => setMetric('blocked')} />
-          <MetricCard icon={<HelpCircle className="h-4 w-4 text-muted-foreground" />} label="Manuell kontroll" value={manualAnalyses.length} onClick={() => setMetric('manual')} />
         </div>
 
-        {noRisks && manualAnalyses.length === 0 ? (
+        {noRisks ? (
           <p className="text-sm text-muted-foreground">Inga risker upptäckta just nu. Bra jobbat!</p>
         ) : (
           <>
