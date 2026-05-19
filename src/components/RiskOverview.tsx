@@ -159,8 +159,20 @@ export default function RiskOverview({
   }
   const missingList = Array.from(missingMap.values());
 
-  // 3. Spärrade kurser — NOT partly (already started ⇒ assume dispens), has at least one hard unmet
-  const blockedAnalyses = analyses.filter(a => a.course.status !== 'partly' && a.hardUnmet.length > 0);
+  // 3. Spärrade kurser — kurser som redan skulle ha lästs (år ≤ aktuellt studieår)
+  // men där förkunskaper saknades, så studenten inte fick gå dem. Påbörjade
+  // kurser räknas inte (då har studenten faktiskt gått kursen, ev. med dispens).
+  const blockedAnalyses = analyses.filter(a =>
+    a.course.status === 'not_started'
+    && a.course.year <= currentStudyYear
+    && a.hardUnmet.length > 0,
+  );
+  // 4. Riskerar att spärras — framtida kurser där förkunskaper saknas just nu.
+  const atRiskAnalyses = analyses.filter(a =>
+    a.course.status === 'not_started'
+    && a.course.year > currentStudyYear
+    && a.hardUnmet.length > 0,
+  );
 
   // Build action-oriented recommendations.
   type Rec = { key: string; text: string; helper: string; priority: number };
