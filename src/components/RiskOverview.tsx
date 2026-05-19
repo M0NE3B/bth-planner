@@ -229,7 +229,8 @@ export default function RiskOverview({
     }
   }
 
-  const noRisks = overdueCourses.length === 0 && blockedAnalyses.length === 0 && missingList.length === 0;
+  const noRisks = overdueCourses.length === 0 && blockedAnalyses.length === 0
+    && atRiskAnalyses.length === 0 && missingList.length === 0;
   const usingFallback = recGroups.size === 0;
 
   // List items for the expanded section
@@ -237,6 +238,12 @@ export default function RiskOverview({
     .sort((a, b) => a.course.year - b.course.year)
     .map(a => ({
       key: `b-${a.course.course_code}`,
+      text: `${fmt(a.course.course_code, nameOf(a.course.course_code))} (år ${a.course.year}) – ${a.hardUnmet.slice(0, 2).map(r => shortMessage(r)).join(', ')}${a.hardUnmet.length > 2 ? ` +${a.hardUnmet.length - 2}` : ''}`,
+    }));
+  const atRiskList = atRiskAnalyses
+    .sort((a, b) => a.course.year - b.course.year)
+    .map(a => ({
+      key: `r-${a.course.course_code}`,
       text: `${fmt(a.course.course_code, nameOf(a.course.course_code))} (år ${a.course.year}) – ${a.hardUnmet.slice(0, 2).map(r => shortMessage(r)).join(', ')}${a.hardUnmet.length > 2 ? ` +${a.hardUnmet.length - 2}` : ''}`,
     }));
   const missingDisplay = missingList.slice(0, 12).map(m => ({
@@ -248,7 +255,7 @@ export default function RiskOverview({
     text: `${fmt(c.course_code, c.course_name)} – inte avklarad från år ${c.year}`,
   }));
 
-  const totalDetails = blockedList.length + missingDisplay.length + overdueDisplay.length;
+  const totalDetails = blockedList.length + atRiskList.length + missingDisplay.length + overdueDisplay.length;
 
   return (
     <Card>
