@@ -258,7 +258,6 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
   const [totalHp, setTotalHp] = useState<number | ''>(program.total_hp ?? '');
   const [savingMeta, setSavingMeta] = useState(false);
   const [addYear, setAddYear] = useState<number>(1);
-  const [addSemester, setAddSemester] = useState<string>('HT');
 
   const load = async () => {
     setLoading(true);
@@ -266,7 +265,7 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
       .from('program_courses')
       .select('*, course:courses_catalog(*)')
       .eq('program_id', program.id)
-      .order('year').order('semester').order('sort_order');
+      .order('year').order('sort_order');
     if (error) { toast.error('Kunde inte ladda kurser'); setLoading(false); return; }
     setRows((data ?? []) as unknown as PCRow[]);
     setLoading(false);
@@ -280,22 +279,14 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
   );
 
   const grouped = useMemo(() => {
-    const map = new Map<string, PCRow[]>();
+    const map = new Map<number, PCRow[]>();
     for (const r of rows) {
-      const key = `${r.year}-${r.semester ?? 'HT'}`;
-      const list = map.get(key) ?? [];
-      list.push(r); map.set(key, list);
+      const list = map.get(r.year) ?? [];
+      list.push(r); map.set(r.year, list);
     }
-    // Sort by year (numeric) then semester (HT before VT)
-    return Array.from(map.entries()).sort((a, b) => {
-      const [ay, as] = a[0].split('-');
-      const [by, bs] = b[0].split('-');
-      const yDiff = Number(ay) - Number(by);
-      if (yDiff !== 0) return yDiff;
-      const semOrder = (s: string) => (s === 'HT' ? 0 : s === 'VT' ? 1 : 2);
-      return semOrder(as) - semOrder(bs);
-    });
+    return Array.from(map.entries()).sort((a, b) => a[0] - b[0]);
   }, [rows]);
+
 
   const stats = useMemo(() => {
     const linkedCourses = rows.length;
