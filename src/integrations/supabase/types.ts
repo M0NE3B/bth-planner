@@ -395,6 +395,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          catalog_migrated_at: string | null
           created_at: string
           display_name: string | null
           id: string
@@ -405,6 +406,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          catalog_migrated_at?: string | null
           created_at?: string
           display_name?: string | null
           id?: string
@@ -415,6 +417,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          catalog_migrated_at?: string | null
           created_at?: string
           display_name?: string | null
           id?: string
@@ -671,6 +674,7 @@ export type Database = {
       admin_backfill_user_courses_catalog: { Args: never; Returns: Json }
       admin_catalog_migration_report: { Args: never; Returns: Json }
       admin_sync_existing_users_to_catalog: { Args: never; Returns: Json }
+      auto_sync_my_account_to_catalog: { Args: never; Returns: Json }
       grant_admin_by_email: { Args: { _email: string }; Returns: string }
       has_role: {
         Args: {
