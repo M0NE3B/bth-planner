@@ -21,7 +21,8 @@ import {
   resolveSubject, normalizeRequirements, evaluateCourseRequirements,
   type CourseRequirement, type RequirementResult,
 } from '@/lib/prerequisites';
-import { useCatalogPrereqs } from '@/lib/useCatalogPrereqs';
+import { useCatalogPrereqs, isGymnasiumRequirement, cleanOriginalText, filterPlanBlocks } from '@/lib/useCatalogPrereqs';
+import CourseInfoPopover from '@/components/CourseInfoPopover';
 
 const PREREQ_TOOLTIP =
   'Förkunskapskrav kan betyda olika saker: en kurs kan behöva vara avklarad, påbörjad/genomgången, eller kräva ett visst antal HP inom en kurs eller ett huvudområde.';
@@ -491,7 +492,25 @@ function CourseCard(props: CourseCardProps) {
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex-1 min-w-[180px]">
             <div className="flex items-center gap-2 flex-wrap text-sm">
-              <span className="font-mono font-semibold text-foreground">{course.course_code}</span>
+              <CourseInfoPopover
+                info={{
+                  code: course.course_code,
+                  name: course.course_name,
+                  hp: course.hp,
+                  subject: subjectLabel,
+                  status: course.status,
+                  originalRequirementText: originalReqText ?? undefined,
+                  unlocksInPlan: blocks ?? [],
+                  nameOf: (c) => courseNameMap.get(c),
+                }}
+              >
+                <button
+                  type="button"
+                  className="font-mono font-semibold text-foreground hover:text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+                >
+                  {course.course_code}
+                </button>
+              </CourseInfoPopover>
               {subjectLabel && (
                 <>
                   <span className="text-muted-foreground" aria-hidden="true">·</span>
@@ -514,6 +533,7 @@ function CourseCard(props: CourseCardProps) {
             </div>
             <p className="text-sm text-muted-foreground">{course.course_name}</p>
           </div>
+
           <div className="flex items-center gap-2">
             <Select value={course.status} onValueChange={(v) => onUpdateStatus(course.id, v as CourseStatus)}>
               <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
@@ -657,9 +677,14 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
   const [newSubtaskHp, setNewSubtaskHp] = useState<Record<string, string>>({});
   const [newSubtaskType, setNewSubtaskType] = useState<Record<string, SubtaskType>>({});
 
+  // Elective candidates from program catalog (mandatory = false)
+  interface ElectiveOption { id: string; code: string; name: string; hp: number; year: number; subject: string | null }
+  const [electives, setElectives] = useState<ElectiveOption[]>([]);
+
   // Pending destructive confirmations
   const [pendingCourseDelete, setPendingCourseDelete] = useState<{ id: string; name: string } | null>(null);
   const [pendingSubtaskDelete, setPendingSubtaskDelete] = useState<Subtask | null>(null);
+
 
   // Display-only filters
   const [filterSearch, setFilterSearch] = useState('');
@@ -703,22 +728,30 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
 
   const prereqMap = useMemo(() => buildPrereqMap(programTemplate), [programTemplate]);
   const blocksMap = useMemo(() => {
-    // Catalog blocks take precedence; merge static template blocks for missing codes.
+    // Only count blockers that exist in the student's own plan
+    const planCodes = new Set(courses.map(c => c.course_code));
     const m = new Map<string, string[]>();
-    for (const [code, list] of catalog.blocksByCode) m.set(code, [...list]);
+    for (const [code, list] of catalog.blocksByCode) {
+      const f = filterPlanBlocks(list, planCodes);
+      if (f.length > 0) m.set(code, f);
+    }
     const staticBlocks = buildBlocksMap(programTemplate);
     for (const [code, list] of staticBlocks) {
-      if (m.has(code)) continue; // prefer catalog
-      m.set(code, list);
+      if (m.has(code)) continue;
+      const f = filterPlanBlocks(list, planCodes);
+      if (f.length > 0) m.set(code, f);
     }
     return m;
-  }, [programTemplate, catalog.blocksByCode]);
+  }, [programTemplate, catalog.blocksByCode, courses]);
 
   const originalReqMap = useMemo(() => {
     const m = new Map<string, string>();
     const staticMap = buildOriginalReqMap(programTemplate);
-    for (const [code, text] of staticMap) m.set(code, text);
-    // Catalog wins
+    for (const [code, text] of staticMap) {
+      const cleaned = cleanOriginalText(text);
+      if (cleaned) m.set(code, cleaned);
+    }
+    // Catalog wins (catalog already cleaned)
     for (const [code, text] of catalog.originalTextByCode) m.set(code, text);
     return m;
   }, [programTemplate, catalog.originalTextByCode]);
@@ -736,7 +769,6 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
       if (m.has(code)) return;
       m.set(code, resolveSubject(code, explicit).primary);
     };
-    // Prefer catalog subjects
     for (const [code, c] of catalog.courseByCode) add(c.course_code, c.subject_area);
     if (programTemplate) for (const c of programTemplate.courses) add(c.code, c.subject);
     for (const c of allBthCourses) add(c.code, c.subject);
@@ -746,19 +778,19 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
 
   const requirementsMap = useMemo(() => {
     const m = new Map<string, CourseRequirement[]>();
-    // Static fallback first
     if (programTemplate) {
       for (const c of programTemplate.courses) {
-        const reqs = normalizeRequirements(c);
+        const reqs = normalizeRequirements(c).filter(r => !isGymnasiumRequirement(r));
         if (reqs.length) m.set(c.code, reqs);
       }
     }
-    // Catalog overrides (preferred when available)
     for (const [code, reqs] of catalog.requirementsByCode) {
-      if (reqs.length > 0) m.set(code, reqs);
+      const filtered = reqs.filter(r => !isGymnasiumRequirement(r));
+      if (filtered.length > 0) m.set(code, filtered);
     }
     return m;
   }, [programTemplate, catalog.requirementsByCode]);
+
 
   const evalContext = useMemo(() => {
     const courseIdToCode = new Map(courses.map(c => [c.id, c.course_code]));
@@ -790,6 +822,67 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
   useEffect(() => {
     fetchData();
   }, [userId]);
+
+  // Load elective candidates for the student's program from the catalog
+  useEffect(() => {
+    if (!programName) { setElectives([]); return; }
+    let cancelled = false;
+    (async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sb = supabase as any;
+      const prog = await sb.from('programs_catalog')
+        .select('id').eq('name', programName).eq('active', true).maybeSingle();
+      if (cancelled || !prog.data) { setElectives([]); return; }
+      const programId = (prog.data as { id: string }).id;
+      const pc = await sb.from('program_courses')
+        .select('year, mandatory, course:courses_catalog(id, course_code, course_name, hp, subject_area)')
+        .eq('program_id', programId)
+        .eq('mandatory', false)
+        .order('year', { ascending: true });
+      if (cancelled || !pc.data) { setElectives([]); return; }
+
+      type Row = { year: number; mandatory: boolean; course: { id: string; course_code: string; course_name: string; hp: number; subject_area: string | null } | null };
+      const list: ElectiveOption[] = ((pc.data as unknown) as Row[])
+        .filter(r => r.course)
+        .map(r => ({
+          id: r.course!.id,
+          code: r.course!.course_code,
+          name: r.course!.course_name,
+          hp: Number(r.course!.hp) || 0,
+          year: r.year,
+          subject: r.course!.subject_area,
+        }));
+      setElectives(list);
+    })();
+    return () => { cancelled = true; };
+  }, [programName]);
+
+  const electivesByYear = useMemo(() => {
+    const userCodes = new Set(courses.map(c => c.course_code));
+    const m = new Map<number, ElectiveOption[]>();
+    for (const e of electives) {
+      if (userCodes.has(e.code)) continue;
+      const arr = m.get(e.year) || [];
+      if (!arr.some(x => x.code === e.code)) arr.push(e);
+      m.set(e.year, arr);
+    }
+    return m;
+  }, [electives, courses]);
+
+  const addElective = async (e: ElectiveOption) => {
+    const { data, error } = await supabase.from('user_courses').insert({
+      user_id: userId, course_code: e.code, course_name: e.name,
+      hp: e.hp, year: e.year, status: 'not_started', catalog_course_id: e.id,
+    }).select().single();
+    if (error) { toast.error('Kunde inte lägga till valbar kurs'); return; }
+    if (data) {
+      const nc = data as UserCourse;
+      setCourses(prev => [...prev, nc]);
+      initialStatusesRef.current.set(nc.id, nc.status);
+      toast.success(`${e.name} tillagd som valbar kurs i år ${e.year}`);
+    }
+  };
+
 
   const fetchData = async () => {
     const [coursesRes, subtasksRes] = await Promise.all([
@@ -1138,35 +1231,63 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
               )}
             </div>
           )}
-          {sortedYearEntries.map(([year, yearCourses]) => (
-            <YearSection
-              key={year}
-              year={year}
-              yearCourses={yearCourses}
-              stats={yearHpStats.find(s => s.year === Number(year))}
-              subtasks={subtasks}
-              expandedCourses={expandedCourses}
-              newSubtaskText={newSubtaskText}
-              newSubtaskDate={newSubtaskDate}
-              newSubtaskHp={newSubtaskHp}
-              newSubtaskType={newSubtaskType}
-              blocksMap={blocksMap}
-              courseNameMap={courseNameMap}
-              subjectMap={subjectMap}
-              originalReqMap={originalReqMap}
-              getRequirementResults={getRequirementResults}
-              onUpdateStatus={updateStatus}
-              onDelete={(id, name) => setPendingCourseDelete({ id, name })}
-              onToggleExpanded={toggleExpanded}
-              setNewSubtaskText={setNewSubtaskText}
-              setNewSubtaskDate={setNewSubtaskDate}
-              setNewSubtaskHp={setNewSubtaskHp}
-              setNewSubtaskType={setNewSubtaskType}
-              onToggleSubtask={toggleSubtask}
-              onDeleteSubtask={(s) => setPendingSubtaskDelete(s)}
-              onAddSubtask={handleAddSubtask}
-            />
-          ))}
+          {sortedYearEntries.map(([year, yearCourses]) => {
+            const yearNum = Number(year);
+            const yearElectives = electivesByYear.get(yearNum) || [];
+            return (
+              <div key={year}>
+                <YearSection
+                  year={year}
+                  yearCourses={yearCourses}
+                  stats={yearHpStats.find(s => s.year === yearNum)}
+                  subtasks={subtasks}
+                  expandedCourses={expandedCourses}
+                  newSubtaskText={newSubtaskText}
+                  newSubtaskDate={newSubtaskDate}
+                  newSubtaskHp={newSubtaskHp}
+                  newSubtaskType={newSubtaskType}
+                  blocksMap={blocksMap}
+                  courseNameMap={courseNameMap}
+                  subjectMap={subjectMap}
+                  originalReqMap={originalReqMap}
+                  getRequirementResults={getRequirementResults}
+                  onUpdateStatus={updateStatus}
+                  onDelete={(id, name) => setPendingCourseDelete({ id, name })}
+                  onToggleExpanded={toggleExpanded}
+                  setNewSubtaskText={setNewSubtaskText}
+                  setNewSubtaskDate={setNewSubtaskDate}
+                  setNewSubtaskHp={setNewSubtaskHp}
+                  setNewSubtaskType={setNewSubtaskType}
+                  onToggleSubtask={toggleSubtask}
+                  onDeleteSubtask={(s) => setPendingSubtaskDelete(s)}
+                  onAddSubtask={handleAddSubtask}
+                />
+                {yearElectives.length > 0 && (
+                  <div className="mb-6 -mt-2 rounded-md border border-dashed border-border p-3 bg-muted/20">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                      Valbara kurser år {year}
+                    </p>
+                    <ul className="space-y-1.5">
+                      {yearElectives.map(e => (
+                        <li key={e.code} className="flex items-center gap-2 flex-wrap text-sm">
+                          <CourseInfoPopover info={{ code: e.code, name: e.name, hp: e.hp, subject: e.subject }}>
+                            <button type="button" className="font-mono font-semibold hover:text-primary hover:underline">{e.code}</button>
+                          </CourseInfoPopover>
+                          <span className="text-muted-foreground">·</span>
+                          <span className="text-foreground flex-1 min-w-0 truncate">{e.name}</span>
+                          <Badge variant="outline" className="text-xs">{e.hp} HP</Badge>
+                          <Button size="sm" variant="outline" className="h-7 gap-1" onClick={() => addElective(e)}>
+                            <Plus className="h-3 w-3" /> Lägg till
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
         </TooltipProvider>
 
       </main>

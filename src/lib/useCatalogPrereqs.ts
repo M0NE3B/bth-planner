@@ -18,11 +18,11 @@ export interface CatalogPrereqIndex {
   courseByCode: Map<string, CatalogCourse>;
   /** Code → display name (catalog only). */
   codeToName: Map<string, string>;
-  /** Code → typed CourseRequirement[] derived from catalog prereqs. */
+  /** Code → typed CourseRequirement[] derived from catalog prereqs (gymnasium-filtered). */
   requirementsByCode: Map<string, CourseRequirement[]>;
   /** Code → list of target course codes that depend on it (i.e. it unlocks them). */
   blocksByCode: Map<string, string[]>;
-  /** Code → original_prerequisite_text from catalog. */
+  /** Code → original_prerequisite_text from catalog (cleaned, gymnasium removed). */
   originalTextByCode: Map<string, string>;
 }
 
@@ -34,6 +34,56 @@ const EMPTY: CatalogPrereqIndex = {
   blocksByCode: new Map(),
   originalTextByCode: new Map(),
 };
+
+/**
+ * Recognises gymnasium / general entry requirements that we explicitly want
+ * to hide from students — they are about *being admitted*, not about
+ * progressing inside the program.
+ */
+const GYMNASIUM_PATTERNS: RegExp[] = [
+  /grundläggande\s+behörighet/i,
+  /områdesbehörighet/i,
+  /matematik\s*[1-4]?\s*[a-e]?\b/i,
+  /\bma\s*[1-4]\s*[a-e]?\b/i,
+  /\bfysik\s*[12]\b/i,
+  /\bkemi\s*[12]\b/i,
+  /\bbiologi\s*[12]\b/i,
+  /\bengelska\s*[5-7]\b/i,
+  /\bsvenska\s*[1-3]\b/i,
+  /gymnasie/i,
+  /samhällskunskap\s*[1-3]/i,
+  /standardbehörighet/i,
+  /yrkeserfarenhet/i,
+  /arbetslivserfarenhet/i,
+];
+
+export function isGymnasiumText(text: string | null | undefined): boolean {
+  if (!text) return false;
+  return GYMNASIUM_PATTERNS.some((p) => p.test(text));
+}
+
+/** Drop a free-text requirement when it's clearly gymnasium/entry-only. */
+export function isGymnasiumRequirement(r: CourseRequirement): boolean {
+  if (r.type === 'custom_text') return isGymnasiumText(r.text) || isGymnasiumText(r.originalText);
+  // Free-text-only program/course-group rules also tend to be entry-noise
+  if ((r.type === 'completed_hp_in_program_group' || r.type === 'completed_hp_in_course_group') && r.manualReview) {
+    return isGymnasiumText(r.originalText);
+  }
+  return false;
+}
+
+/** Remove gymnasium sentences from an original prerequisite text block. */
+export function cleanOriginalText(text: string | null | undefined): string {
+  if (!text) return '';
+  const sentences = text.split(/(?<=[.;])\s+/);
+  return sentences.filter((s) => !isGymnasiumText(s)).join(' ').trim();
+}
+
+/** Filter a "blocks" list down to courses the student actually has in their plan. */
+export function filterPlanBlocks(blocks: string[] | undefined, planCodes: Set<string>): string[] {
+  if (!blocks || blocks.length === 0) return [];
+  return blocks.filter((c) => planCodes.has(c));
+}
 
 export function useCatalogPrereqs(): CatalogPrereqIndex {
   const [state, setState] = useState<CatalogPrereqIndex>(EMPTY);
@@ -68,7 +118,8 @@ export function buildIndex(
     courseByCode.set(c.course_code.toUpperCase(), c);
     courseById.set(c.id, c);
     codeToName.set(c.course_code, c.course_name);
-    if (c.original_prerequisite_text) originalTextByCode.set(c.course_code, c.original_prerequisite_text);
+    const cleaned = cleanOriginalText(c.original_prerequisite_text);
+    if (cleaned) originalTextByCode.set(c.course_code, cleaned);
   }
   // Group prereq rows by target course
   const byTarget = new Map<string, CatalogPrerequisite[]>();
@@ -82,8 +133,8 @@ export function buildIndex(
   for (const [targetId, rows] of byTarget) {
     const target = courseById.get(targetId);
     if (!target) continue;
-    const reqs = prereqsToRequirements(rows, courses);
-    requirementsByCode.set(target.course_code, reqs);
+    const reqs = prereqsToRequirements(rows, courses).filter((r) => !isGymnasiumRequirement(r));
+    if (reqs.length > 0) requirementsByCode.set(target.course_code, reqs);
     // Build blocker map (which courses does X unlock?)
     for (const r of rows) {
       if (

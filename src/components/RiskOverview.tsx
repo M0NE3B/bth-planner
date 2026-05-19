@@ -14,7 +14,7 @@ import {
   evaluateCourseRequirements, normalizeRequirements,
   type CourseRequirement, type RequirementResult, resolveSubject,
 } from '@/lib/prerequisites';
-import type { CatalogPrereqIndex } from '@/lib/useCatalogPrereqs';
+import { isGymnasiumRequirement, type CatalogPrereqIndex } from '@/lib/useCatalogPrereqs';
 
 interface CourseRow {
   course_code: string;
@@ -59,15 +59,19 @@ export default function RiskOverview({
     const m = new Map<string, CourseRequirement[]>();
     if (programTemplate) {
       for (const c of programTemplate.courses) {
-        const reqs = normalizeRequirements(c);
+        const reqs = normalizeRequirements(c).filter(r => !isGymnasiumRequirement(r));
         if (reqs.length) m.set(c.code, reqs);
       }
     }
     if (catalog) {
-      for (const [code, reqs] of catalog.requirementsByCode) m.set(code, reqs);
+      for (const [code, reqs] of catalog.requirementsByCode) {
+        const filtered = reqs.filter(r => !isGymnasiumRequirement(r));
+        if (filtered.length > 0) m.set(code, filtered);
+      }
     }
     return m;
   }, [programTemplate, catalog]);
+
 
   // Name map combining template + catalog + user courses
   const nameMap = useMemo(() => {
