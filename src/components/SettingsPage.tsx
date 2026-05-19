@@ -9,7 +9,8 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { LogOut, User, GraduationCap, Settings as SettingsIcon, RotateCcw, Trash2, ShieldCheck } from 'lucide-react';
+import { LogOut, User, GraduationCap, Settings as SettingsIcon, RotateCcw, Trash2, ShieldCheck, MessageSquare } from 'lucide-react';
+import FeedbackDialog from './FeedbackDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { bthPrograms } from '@/lib/programs';
 import { estimateStudyYear } from '@/lib/studyYear';
@@ -40,6 +41,7 @@ export default function SettingsPage({ userId, email, programName, startYear, on
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   useEffect(() => {
     supabase.from('user_courses')
