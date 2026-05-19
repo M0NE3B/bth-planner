@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/table';
 import { Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import PrereqNormalizeCard from './PrereqNormalizeCard';
 import { toast } from 'sonner';
 import type { CatalogCourse, CatalogPrerequisite, RequirementType } from '@/lib/catalog';
 
@@ -78,6 +79,7 @@ export default function PrerequisitesTab() {
 
   return (
     <div className="space-y-3">
+      <PrereqNormalizeCard />
       <div className="flex flex-col md:flex-row md:items-end gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

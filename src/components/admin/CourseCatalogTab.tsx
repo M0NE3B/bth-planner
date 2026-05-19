@@ -32,15 +32,17 @@ export default function CourseCatalogTab() {
   const [subject, setSubject] = useState<string>('all');
   const [onlyMissingHp, setOnlyMissingHp] = useState(false);
   const [onlyMissingSubject, setOnlyMissingSubject] = useState(false);
+  const [prereqFilter, setPrereqFilter] = useState<'all' | 'structured' | 'manual' | 'none'>('all');
   const [editing, setEditing] = useState<CatalogCourse | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [archiveTarget, setArchiveTarget] = useState<CourseRow | null>(null);
+  const [manualByCourse, setManualByCourse] = useState<Map<string, { total: number; manual: number }>>(new Map());
 
   const load = async () => {
     setLoading(true);
     const [coursesRes, prereqRes] = await Promise.all([
       supabase.from('courses_catalog').select('*').order('course_code'),
-      supabase.from('course_prerequisites').select('target_course_id'),
+      supabase.from('course_prerequisites').select('target_course_id, manual_review, requirement_type'),
     ]);
     if (coursesRes.error) {
       toast.error('Kunde inte ladda kurser');
@@ -48,10 +50,16 @@ export default function CourseCatalogTab() {
       return;
     }
     const counts = new Map<string, number>();
+    const manualMap = new Map<string, { total: number; manual: number }>();
     for (const r of prereqRes.data ?? []) {
-      const id = (r as { target_course_id: string }).target_course_id;
-      counts.set(id, (counts.get(id) ?? 0) + 1);
+      const row = r as { target_course_id: string; manual_review: boolean; requirement_type: string };
+      counts.set(row.target_course_id, (counts.get(row.target_course_id) ?? 0) + 1);
+      const cur = manualMap.get(row.target_course_id) ?? { total: 0, manual: 0 };
+      cur.total += 1;
+      if (row.manual_review || row.requirement_type === 'custom_text') cur.manual += 1;
+      manualMap.set(row.target_course_id, cur);
     }
+    setManualByCourse(manualMap);
     setCourses((coursesRes.data ?? []).map((c) => ({
       ...(c as unknown as CatalogCourse),
       prereq_count: counts.get((c as { id: string }).id) ?? 0,
@@ -75,6 +83,12 @@ export default function CourseCatalogTab() {
       if (subject !== 'all' && (c.subject_area ?? '') !== subject) return false;
       if (onlyMissingHp && Number(c.hp) > 0) return false;
       if (onlyMissingSubject && (c.subject_area ?? '').trim()) return false;
+      if (prereqFilter !== 'all') {
+        const info = manualByCourse.get(c.id) ?? { total: 0, manual: 0 };
+        if (prereqFilter === 'none' && info.total > 0) return false;
+        if (prereqFilter === 'structured' && (info.total === 0 || info.total === info.manual)) return false;
+        if (prereqFilter === 'manual' && (info.total === 0 || info.total !== info.manual)) return false;
+      }
       if (!q) return true;
       return (
         c.course_code.toLowerCase().includes(q) ||
@@ -82,7 +96,24 @@ export default function CourseCatalogTab() {
         (c.subject_area ?? '').toLowerCase().includes(q)
       );
     });
-  }, [courses, search, status, subject, onlyMissingHp, onlyMissingSubject]);
+  }, [courses, search, status, subject, onlyMissingHp, onlyMissingSubject, prereqFilter, manualByCourse]);
+
+  const summary = useMemo(() => {
+    const total = courses.length;
+    const active = courses.filter((c) => c.active).length;
+    return {
+      total,
+      active,
+      archived: total - active,
+      missingHp: courses.filter((c) => !Number(c.hp)).length,
+      missingSubject: courses.filter((c) => !(c.subject_area ?? '').trim()).length,
+      withPrereqs: courses.filter((c) => c.prereq_count > 0).length,
+      onlyManual: courses.filter((c) => {
+        const i = manualByCourse.get(c.id);
+        return i && i.total > 0 && i.total === i.manual;
+      }).length,
+    };
+  }, [courses, manualByCourse]);
 
   const allCourses = useMemo(
     () => courses.map((c) => ({ id: c.id, course_code: c.course_code, course_name: c.course_name })),
@@ -103,6 +134,15 @@ export default function CourseCatalogTab() {
 
   return (
     <div className="space-y-3">
+      <div className="grid grid-cols-2 md:grid-cols-7 gap-2 text-xs">
+        <SummaryStat label="Totalt" value={summary.total} />
+        <SummaryStat label="Aktiva" value={summary.active} />
+        <SummaryStat label="Arkiverade" value={summary.archived} />
+        <SummaryStat label="Saknar HP" value={summary.missingHp} tone={summary.missingHp ? 'warn' : undefined} />
+        <SummaryStat label="Saknar huvudområde" value={summary.missingSubject} tone={summary.missingSubject ? 'warn' : undefined} />
+        <SummaryStat label="Med förkunskaper" value={summary.withPrereqs} />
+        <SummaryStat label="Endast manuella" value={summary.onlyManual} tone={summary.onlyManual ? 'warn' : undefined} />
+      </div>
       <div className="flex flex-col md:flex-row md:items-end gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -138,6 +178,18 @@ export default function CourseCatalogTab() {
           <Switch id="m-hp" checked={onlyMissingHp} onCheckedChange={setOnlyMissingHp} />
           <Label htmlFor="m-hp" className="text-sm">Saknar HP</Label>
         </div>
+        <div className="w-full md:w-48">
+          <Label className="text-xs">Förkunskaper</Label>
+          <Select value={prereqFilter} onValueChange={(v) => setPrereqFilter(v as 'all' | 'structured' | 'manual' | 'none')}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Alla</SelectItem>
+              <SelectItem value="structured">Strukturerade</SelectItem>
+              <SelectItem value="manual">Endast manuella</SelectItem>
+              <SelectItem value="none">Inga förkunskaper</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         <div className="flex items-center gap-2 px-2">
           <Switch id="m-sub" checked={onlyMissingSubject} onCheckedChange={setOnlyMissingSubject} />
           <Label htmlFor="m-sub" className="text-sm">Saknar område</Label>
@@ -167,7 +219,7 @@ export default function CourseCatalogTab() {
               <TableRow><TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-6">Laddar…</TableCell></TableRow>
             ) : filtered.length === 0 ? (
               <TableRow><TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-6">
-                {courses.length === 0 ? 'Katalogen är tom. Använd "Import & verktyg" för att importera från statiska mallar.' : 'Inga kurser matchar filtret.'}
+                {courses.length === 0 ? 'Katalogen är tom. Använd "Import" för att lägga in kurser.' : 'Inga kurser matchar filtret.'}
               </TableCell></TableRow>
             ) : filtered.map((c) => (
               <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => { setEditing(c); setSheetOpen(true); }}>
@@ -224,6 +276,15 @@ export default function CourseCatalogTab() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+function SummaryStat({ label, value, tone }: { label: string; value: number; tone?: 'warn' }) {
+  return (
+    <div className={`rounded-md border p-2 ${tone === 'warn' ? 'border-destructive/40 bg-destructive/5' : 'border-border bg-muted/30'}`}>
+      <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</p>
+      <p className="text-base font-semibold">{value}</p>
     </div>
   );
 }

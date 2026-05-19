@@ -6,7 +6,11 @@ import ImportTab from './ImportTab';
 import AdminsTab from './AdminsTab';
 import DataQualityTab from './DataQualityTab';
 import PrerequisitesTab from './PrerequisitesTab';
-import MigrationTab from './MigrationTab';
+
+// Note: MigrationTab och "Importera från statiska mallar" är medvetet inte
+// exponerade i UI längre — backfill är klar och statisk import används inte.
+// Koden finns kvar i src/components/admin/MigrationTab.tsx och
+// src/lib/admin.ts (importFromStaticTemplates) för internt bruk.
 
 export default function AdminPanel() {
   return (
@@ -19,20 +23,18 @@ export default function AdminPanel() {
         Hantera kurskatalogen, program och förkunskapskrav. Endast administratörer ser denna sektion.
       </p>
       <Tabs defaultValue="courses" className="w-full">
-        <TabsList className="grid grid-cols-3 md:grid-cols-7 w-full">
+        <TabsList className="grid grid-cols-3 md:grid-cols-6 w-full">
           <TabsTrigger value="courses">Kurskatalog</TabsTrigger>
           <TabsTrigger value="programs">Program</TabsTrigger>
           <TabsTrigger value="prereqs">Förkunskaper</TabsTrigger>
           <TabsTrigger value="quality">Datakvalitet</TabsTrigger>
-          <TabsTrigger value="migration">Migration</TabsTrigger>
-          <TabsTrigger value="import">Import & verktyg</TabsTrigger>
+          <TabsTrigger value="import">Import</TabsTrigger>
           <TabsTrigger value="admins">Administratörer</TabsTrigger>
         </TabsList>
         <TabsContent value="courses" className="mt-4"><CourseCatalogTab /></TabsContent>
         <TabsContent value="programs" className="mt-4"><ProgramsTab /></TabsContent>
         <TabsContent value="prereqs" className="mt-4"><PrerequisitesTab /></TabsContent>
         <TabsContent value="quality" className="mt-4"><DataQualityTab /></TabsContent>
-        <TabsContent value="migration" className="mt-4"><MigrationTab /></TabsContent>
         <TabsContent value="import" className="mt-4"><ImportTab /></TabsContent>
         <TabsContent value="admins" className="mt-4"><AdminsTab /></TabsContent>
       </Tabs>
