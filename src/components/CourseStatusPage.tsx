@@ -1416,6 +1416,7 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
                   onToggleSubtask={toggleSubtask}
                   onDeleteSubtask={(s) => setPendingSubtaskDelete(s)}
                   onAddSubtask={handleAddSubtask}
+                  onSetSubtaskDate={addDateToSubtask}
                 />
                 {showElectivePrompt && (
                   <div className="mb-3 -mt-2 rounded-md border border-warning/40 bg-warning/10 p-3 flex items-start gap-2">
