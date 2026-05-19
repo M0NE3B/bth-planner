@@ -994,6 +994,7 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
   };
 
   const handleDelete = async (courseId: string, courseName: string) => {
+    const course = courses.find(c => c.id === courseId);
     const { error } = await supabase.from('user_courses').delete().eq('id', courseId);
     if (error) {
       toast.error('Kunde inte ta bort kursen');
@@ -1002,7 +1003,31 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
     setCourses(prev => prev.filter(c => c.id !== courseId));
     initialStatusesRef.current.delete(courseId);
     setSubtasks(prev => prev.filter(s => s.course_id !== courseId));
+
+    // Remember this code as dismissed so auto-seed doesn't bring it back.
+    if (course) {
+      const codeUpper = course.course_code.toUpperCase();
+      if (!dismissedCodesRef.current.has(codeUpper)) {
+        dismissedCodesRef.current.add(codeUpper);
+        const next = Array.from(dismissedCodesRef.current);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase as any).from('profiles')
+          .update({ dismissed_course_codes: next })
+          .eq('user_id', userId);
+      }
+    }
     toast.success(`${courseName} borttagen`);
+  };
+
+  const removeFromDismissed = async (code: string) => {
+    const codeUpper = code.toUpperCase();
+    if (!dismissedCodesRef.current.has(codeUpper)) return;
+    dismissedCodesRef.current.delete(codeUpper);
+    const next = Array.from(dismissedCodesRef.current);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any).from('profiles')
+      .update({ dismissed_course_codes: next })
+      .eq('user_id', userId);
   };
 
   const handleAddCourse = async (course: { code: string; name: string; hp: number }) => {
@@ -1020,6 +1045,7 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
       const newCourse = data as UserCourse;
       setCourses(prev => [...prev, newCourse]);
       initialStatusesRef.current.set(newCourse.id, newCourse.status);
+      await removeFromDismissed(course.code);
       toast.success(`${course.name} tillagd i år ${year}`);
     }
   };
