@@ -202,11 +202,18 @@ export async function buildProgramTemplateFromCatalog(
   ]);
   if (pcRows.length === 0) return null;
 
-  const { data: prereqRows, error: prErr } = await supabase
-    .from('course_prerequisites' as never)
-    .select('*');
-  if (prErr) throw prErr;
-  const prereqs = (prereqRows ?? []) as unknown as CatalogPrerequisite[];
+  // Paginate — course_prerequisites can exceed the default 1000-row cap.
+  const prereqs: CatalogPrerequisite[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase
+      .from('course_prerequisites' as never)
+      .select('*')
+      .range(from, from + 999);
+    if (error) throw error;
+    const rows = (data ?? []) as unknown as CatalogPrerequisite[];
+    prereqs.push(...rows);
+    if (rows.length < 1000) break;
+  }
   const prereqsByTarget = new Map<string, CatalogPrerequisite[]>();
   for (const r of prereqs) {
     const list = prereqsByTarget.get(r.target_course_id) ?? [];
