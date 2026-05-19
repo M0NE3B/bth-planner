@@ -20,6 +20,7 @@ import { EVENT_TYPE_LABEL as TYPE_LABEL, EVENT_STATUS_LABEL as STATUS_LABEL, COU
 import { useCatalogPrereqs } from '@/lib/useCatalogPrereqs';
 import { computeHpUnlockMap, computeUnlockBonus, type UnlockEntry } from '@/lib/hpUnlock';
 import { resolveSubject, type EvalContext } from '@/lib/prerequisites';
+import { formatHp } from '@/lib/utils';
 
 interface DashboardProps {
   userId: string;
