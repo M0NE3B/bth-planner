@@ -1,21 +1,16 @@
-import { useMemo, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { Label } from '@/components/ui/label';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
-import type { CatalogCourse, CatalogPrerequisite } from '@/lib/catalog';
+import type { PrerequisiteInput } from '@/lib/admin';
+import type { CourseOption } from './CourseCombobox';
 
 interface Props {
-  courses: CatalogCourse[];
-  rows: CatalogPrerequisite[];
+  prereqs: PrerequisiteInput[];
+  courses: CourseOption[];
 }
 
-/** Build a short Swedish description of a single prereq row. */
-function describeRow(r: CatalogPrerequisite, courseById: Map<string, CatalogCourse>): string {
-  const req = r.required_course_id ? courseById.get(r.required_course_id) : null;
-  const cc = req ? `${req.course_code}` : '—';
+function describe(r: PrerequisiteInput, byId: Map<string, CourseOption>): string {
+  const req = r.required_course_id ? byId.get(r.required_course_id) : null;
+  const cc = req ? req.course_code : '—';
   switch (r.requirement_type) {
     case 'completed_course': return `Avklarad: ${cc}`;
     case 'attended_course': return `Genomgången/påbörjad: ${cc}`;
@@ -30,109 +25,84 @@ function describeRow(r: CatalogPrerequisite, courseById: Map<string, CatalogCour
   }
 }
 
-export default function PrereqLogicPreview({ courses, rows }: Props) {
-  const [targetId, setTargetId] = useState<string>('');
+export default function PrereqLogicPreview({ prereqs, courses }: Props) {
+  const byId = useMemo(() => new Map(courses.map((c) => [c.id, c])), [courses]);
 
-  const courseById = useMemo(() => new Map(courses.map((c) => [c.id, c])), [courses]);
-  const targetsWithRules = useMemo(() => {
-    const ids = new Set(rows.map((r) => r.target_course_id));
-    return courses
-      .filter((c) => ids.has(c.id))
-      .sort((a, b) => a.course_code.localeCompare(b.course_code));
-  }, [courses, rows]);
-
-  const courseRows = useMemo(
-    () => rows.filter((r) => r.target_course_id === targetId),
-    [rows, targetId],
-  );
-
-  // Group rows by logic_group (null/undefined = own group per row id)
   const groups = useMemo(() => {
-    const map = new Map<string, { key: string; operator: 'AND' | 'OR'; rows: CatalogPrerequisite[] }>();
-    for (const r of courseRows) {
-      const key = r.logic_group != null ? `g-${r.logic_group}` : `solo-${r.id}`;
+    const map = new Map<string, { key: string; operator: 'AND' | 'OR'; rows: PrerequisiteInput[]; logic: number | null }>();
+    prereqs.forEach((r, idx) => {
+      const key = r.logic_group != null ? `g-${r.logic_group}` : `solo-${idx}`;
       const op = (r.group_operator ?? 'AND') as 'AND' | 'OR';
       const existing = map.get(key);
       if (existing) existing.rows.push(r);
-      else map.set(key, { key, operator: op, rows: [r] });
-    }
-    return Array.from(map.values()).sort((a, b) => a.key.localeCompare(b.key));
-  }, [courseRows]);
+      else map.set(key, { key, operator: op, rows: [r], logic: r.logic_group ?? null });
+    });
+    return Array.from(map.values());
+  }, [prereqs]);
 
-  const target = targetId ? courseById.get(targetId) : null;
+  // Detect inconsistencies inside a logic_group (different operators across rows)
+  const warnings = useMemo(() => {
+    const w: string[] = [];
+    const opsPerGroup = new Map<number, Set<string>>();
+    for (const r of prereqs) {
+      if (r.logic_group == null) continue;
+      const s = opsPerGroup.get(r.logic_group) ?? new Set<string>();
+      s.add(r.group_operator ?? 'AND');
+      opsPerGroup.set(r.logic_group, s);
+    }
+    for (const [g, ops] of opsPerGroup) {
+      if (ops.size > 1) w.push(`Logikgrupp #${g} har olika operatorer på sina rader – sätt samma AND/OR på alla.`);
+    }
+    return w;
+  }, [prereqs]);
+
+  if (prereqs.length === 0) return null;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Förhandsvisning – så tolkas kraven</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <p className="text-xs text-muted-foreground">
-          Rader med samma <strong>logikgrupp</strong> kombineras med gruppens <strong>operator</strong>{' '}
-          (AND = alla måste uppfyllas, OR = minst en räcker). Olika logikgrupper kombineras alltid med AND.
-          Rader utan logikgrupp behandlas som egna AND-villkor.
-        </p>
+    <div className="rounded-md border border-dashed border-border bg-muted/20 p-3 space-y-2 mt-3">
+      <div className="flex items-center gap-2">
+        <Badge variant="outline" className="text-[10px]">Förhandsvisning</Badge>
+        <span className="text-xs text-muted-foreground">Så här tolkas reglerna innan du sparar.</span>
+      </div>
 
-        <div className="max-w-md">
-          <Label className="text-xs">Välj kurs att förhandsvisa</Label>
-          <Select value={targetId} onValueChange={setTargetId}>
-            <SelectTrigger><SelectValue placeholder="Välj kurs…" /></SelectTrigger>
-            <SelectContent>
-              {targetsWithRules.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.course_code} – {c.course_name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      {warnings.length > 0 && (
+        <ul className="text-xs text-destructive space-y-0.5">
+          {warnings.map((w) => <li key={w}>⚠ {w}</li>)}
+        </ul>
+      )}
 
-        {target && (
-          <div className="space-y-3">
-            <div className="text-sm">
-              För att läsa <strong>{target.course_code} {target.course_name}</strong> krävs:
+      <ol className="space-y-2">
+        {groups.map((g, i) => (
+          <li key={g.key} className="rounded-md border border-border bg-background p-2">
+            <div className="flex items-center gap-2 mb-1 text-[11px]">
+              <Badge variant="outline">Grupp {i + 1}</Badge>
+              {g.rows.length > 1 ? (
+                <Badge variant={g.operator === 'OR' ? 'secondary' : 'default'}>
+                  {g.operator === 'OR' ? 'Minst en (OR)' : 'Alla (AND)'}
+                </Badge>
+              ) : (
+                <Badge variant="outline">Enskilt villkor</Badge>
+              )}
+              {g.logic != null && <span className="text-muted-foreground">logikgrupp #{g.logic}</span>}
             </div>
-            {groups.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Inga regler registrerade.</p>
-            ) : (
-              <ol className="space-y-2">
-                {groups.map((g, i) => (
-                  <li key={g.key} className="rounded-md border border-border p-3 bg-muted/30">
-                    <div className="flex items-center gap-2 mb-2 text-xs">
-                      <Badge variant="outline">Grupp {i + 1}</Badge>
-                      {g.rows.length > 1 ? (
-                        <Badge variant={g.operator === 'OR' ? 'secondary' : 'default'}>
-                          {g.operator === 'OR' ? 'Minst en (OR)' : 'Alla (AND)'}
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline">Enskilt villkor</Badge>
-                      )}
-                      {g.rows[0].logic_group != null && (
-                        <span className="text-muted-foreground">logikgrupp #{g.rows[0].logic_group}</span>
-                      )}
-                    </div>
-                    <ul className="space-y-1 text-sm">
-                      {g.rows.map((r, idx) => (
-                        <li key={r.id} className="flex gap-2">
-                          <span className="text-muted-foreground">
-                            {idx === 0 ? '•' : g.operator === 'OR' ? 'eller' : 'och'}
-                          </span>
-                          <span>{describeRow(r, courseById)}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </li>
-                ))}
-                {groups.length > 1 && (
-                  <li className="text-xs text-muted-foreground pl-3">
-                    Alla {groups.length} grupper måste vara uppfyllda samtidigt (AND mellan grupper).
-                  </li>
-                )}
-              </ol>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+            <ul className="space-y-0.5 text-xs">
+              {g.rows.map((r, idx) => (
+                <li key={idx} className="flex gap-2">
+                  <span className="text-muted-foreground w-10 shrink-0">
+                    {idx === 0 ? '•' : g.operator === 'OR' ? 'eller' : 'och'}
+                  </span>
+                  <span>{describe(r, byId)}</span>
+                </li>
+              ))}
+            </ul>
+          </li>
+        ))}
+      </ol>
+      {groups.length > 1 && (
+        <p className="text-[11px] text-muted-foreground">
+          Alla {groups.length} grupper måste vara uppfyllda samtidigt (AND mellan grupper).
+        </p>
+      )}
+    </div>
   );
 }
