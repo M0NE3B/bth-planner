@@ -546,7 +546,7 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
             <TrendingUp className="h-5 w-5 text-primary" />
             Studieframsteg
             <InfoPopover label="Så beräknas studieframsteg">
-              Studieframsteg visar hur många HP du har tjänat ihop av programmets totala HP. Avklarade delmoment med HP räknas in i framsteget, men dubbelräknas inte om hela kursen är avklarad.
+              Studieframsteg visar hur många HP du har tjänat ihop av programmets totala HP. En avklarad kurs räknas med hela sin HP. För påbörjade kurser räknas summan av HP från dina avklarade delmoment (utan att dubbelräknas mot hela kursen).
             </InfoPopover>
           </CardTitle>
         </CardHeader>
@@ -609,7 +609,7 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
               <Target className="h-5 w-5 text-primary" />
               Fokusera härnäst
               <InfoPopover label="Så prioriteras fokuslistan">
-                Fokusera härnäst prioriterar kommande tentor, uppgifter och labbar baserat på deadline, omfattning/HP, kurskoppling och risk för spärrar.
+                Fokusera härnäst lyfter fram de kommande händelserna (tentor, inlämningar, labbar och delmoment) som är viktigast just nu. Prioriteringen baseras på hur nära deadline är, händelsens omfattning i HP, vilken kurs den hör till och om kursen riskerar att spärra senare kurser.
               </InfoPopover>
             </CardTitle>
             <Link to="/add-event">

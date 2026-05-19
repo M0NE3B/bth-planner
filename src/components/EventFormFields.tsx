@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DateInput } from '@/components/ui/date-input';
 import { TimeInput } from '@/components/ui/time-input';
 import { EVENT_TYPE_OPTIONS, EVENT_STATUS_OPTIONS } from '@/lib/events';
+import CourseCodeCombobox from '@/components/CourseCodeCombobox';
 
 export interface EventFormFieldsCourse {
   course_code: string;
@@ -58,16 +59,12 @@ export default function EventFormFields({
       </div>
       <div>
         <Label htmlFor={`${idPrefix}-course`}>Kurs</Label>
-        <Select value={fCourse} onValueChange={setFCourse}>
-          <SelectTrigger><SelectValue placeholder="Välj kurs" /></SelectTrigger>
-          <SelectContent>
-            {courses.map(c => (
-              <SelectItem key={c.course_code} value={c.course_code}>
-                {c.course_code} - {c.course_name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <CourseCodeCombobox
+          id={`${idPrefix}-course`}
+          value={fCourse}
+          onChange={setFCourse}
+          options={courses}
+        />
       </div>
       <div className={showStatus ? 'grid grid-cols-2 gap-3' : ''}>
         <div>

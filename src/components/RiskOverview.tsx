@@ -270,11 +270,13 @@ export default function RiskOverview({
               </button>
             </PopoverTrigger>
             <PopoverContent side="bottom" align="start" className="w-72 text-sm">
-              Riskbilden baseras på ditt program, startår, kursstatus och förkunskapskrav från kurskatalogen.
+              Riskbilden baseras på ditt program, startår, din kursstatus och förkunskapskraven i kurskatalogen.
               <br /><br />
-              <strong>Spärrad</strong> = kurs som redan skulle ha lästs (år ≤ aktuellt studieår) men där förkunskaper saknades, så du inte fick gå den. Påbörjade kurser räknas inte.
+              <strong>Ej avklarade kurser</strong> = kurser i din studieplan som inte är markerade som avklarade ännu.
               <br /><br />
-              <strong>Riskerar att spärras</strong> = framtida kurs där du saknar förkunskaper just nu.
+              <strong>Spärrad</strong> = kurs som borde ha lästs vid det här laget (år ≤ aktuellt studieår) men där förkunskapskraven inte var uppfyllda. Påbörjade och avklarade kurser räknas inte som spärrade.
+              <br /><br />
+              <strong>Riskerar att spärras</strong> = framtida kurs där du i dagsläget saknar förkunskaper.
             </PopoverContent>
           </Popover>
         </CardTitle>
