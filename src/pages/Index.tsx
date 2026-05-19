@@ -22,6 +22,7 @@ export default function Index() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [setupComplete, setSetupComplete] = useState<boolean | null>(null);
+  const [statusOnboardingComplete, setStatusOnboardingComplete] = useState<boolean>(true);
   const [profileData, setProfileData] = useState<{ program_name: string | null; start_year: number | null } | null>(null);
   const [catalogProgramHp, setCatalogProgramHp] = useState<number | null>(null);
   const [authView, setAuthView] = useState<null | 'login' | 'signup'>(null);
