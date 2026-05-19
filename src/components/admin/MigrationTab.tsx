@@ -9,8 +9,8 @@ import {
 import { AlertTriangle, CheckCircle2, Database, Play, RefreshCw, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import {
-  fetchMigrationReport, runCatalogBackfill, runExistingUsersSync,
-  type MigrationReport, type BackfillResult, type UserSyncResult,
+  fetchMigrationReport, runCatalogBackfill,
+  type MigrationReport, type BackfillResult,
 } from '@/lib/catalogCompat';
 
 export default function MigrationTab() {
@@ -19,8 +19,6 @@ export default function MigrationTab() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [report, setReport] = useState<MigrationReport | null>(null);
   const [lastBackfill, setLastBackfill] = useState<BackfillResult | null>(null);
-  const [syncing, setSyncing] = useState(false);
-  const [lastSync, setLastSync] = useState<UserSyncResult | null>(null);
 
   const load = async () => {
     setLoading(true);
