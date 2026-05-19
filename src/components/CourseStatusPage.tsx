@@ -1231,35 +1231,63 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
               )}
             </div>
           )}
-          {sortedYearEntries.map(([year, yearCourses]) => (
-            <YearSection
-              key={year}
-              year={year}
-              yearCourses={yearCourses}
-              stats={yearHpStats.find(s => s.year === Number(year))}
-              subtasks={subtasks}
-              expandedCourses={expandedCourses}
-              newSubtaskText={newSubtaskText}
-              newSubtaskDate={newSubtaskDate}
-              newSubtaskHp={newSubtaskHp}
-              newSubtaskType={newSubtaskType}
-              blocksMap={blocksMap}
-              courseNameMap={courseNameMap}
-              subjectMap={subjectMap}
-              originalReqMap={originalReqMap}
-              getRequirementResults={getRequirementResults}
-              onUpdateStatus={updateStatus}
-              onDelete={(id, name) => setPendingCourseDelete({ id, name })}
-              onToggleExpanded={toggleExpanded}
-              setNewSubtaskText={setNewSubtaskText}
-              setNewSubtaskDate={setNewSubtaskDate}
-              setNewSubtaskHp={setNewSubtaskHp}
-              setNewSubtaskType={setNewSubtaskType}
-              onToggleSubtask={toggleSubtask}
-              onDeleteSubtask={(s) => setPendingSubtaskDelete(s)}
-              onAddSubtask={handleAddSubtask}
-            />
-          ))}
+          {sortedYearEntries.map(([year, yearCourses]) => {
+            const yearNum = Number(year);
+            const yearElectives = electivesByYear.get(yearNum) || [];
+            return (
+              <div key={year}>
+                <YearSection
+                  year={year}
+                  yearCourses={yearCourses}
+                  stats={yearHpStats.find(s => s.year === yearNum)}
+                  subtasks={subtasks}
+                  expandedCourses={expandedCourses}
+                  newSubtaskText={newSubtaskText}
+                  newSubtaskDate={newSubtaskDate}
+                  newSubtaskHp={newSubtaskHp}
+                  newSubtaskType={newSubtaskType}
+                  blocksMap={blocksMap}
+                  courseNameMap={courseNameMap}
+                  subjectMap={subjectMap}
+                  originalReqMap={originalReqMap}
+                  getRequirementResults={getRequirementResults}
+                  onUpdateStatus={updateStatus}
+                  onDelete={(id, name) => setPendingCourseDelete({ id, name })}
+                  onToggleExpanded={toggleExpanded}
+                  setNewSubtaskText={setNewSubtaskText}
+                  setNewSubtaskDate={setNewSubtaskDate}
+                  setNewSubtaskHp={setNewSubtaskHp}
+                  setNewSubtaskType={setNewSubtaskType}
+                  onToggleSubtask={toggleSubtask}
+                  onDeleteSubtask={(s) => setPendingSubtaskDelete(s)}
+                  onAddSubtask={handleAddSubtask}
+                />
+                {yearElectives.length > 0 && (
+                  <div className="mb-6 -mt-2 rounded-md border border-dashed border-border p-3 bg-muted/20">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                      Valbara kurser år {year}
+                    </p>
+                    <ul className="space-y-1.5">
+                      {yearElectives.map(e => (
+                        <li key={e.code} className="flex items-center gap-2 flex-wrap text-sm">
+                          <CourseInfoPopover info={{ code: e.code, name: e.name, hp: e.hp, subject: e.subject }}>
+                            <button type="button" className="font-mono font-semibold hover:text-primary hover:underline">{e.code}</button>
+                          </CourseInfoPopover>
+                          <span className="text-muted-foreground">·</span>
+                          <span className="text-foreground flex-1 min-w-0 truncate">{e.name}</span>
+                          <Badge variant="outline" className="text-xs">{e.hp} HP</Badge>
+                          <Button size="sm" variant="outline" className="h-7 gap-1" onClick={() => addElective(e)}>
+                            <Plus className="h-3 w-3" /> Lägg till
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
         </TooltipProvider>
 
       </main>
