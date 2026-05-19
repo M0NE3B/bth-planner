@@ -312,7 +312,7 @@ export default function RiskOverview({
               {metric === 'overdue' && 'Ej avklarade kurser'}
               {metric === 'missing' && 'Saknade förkunskaper'}
               {metric === 'blocked' && 'Spärrade kurser'}
-              {metric === 'manual' && 'Manuell kontroll'}
+              
             </DialogTitle>
           </DialogHeader>
 
