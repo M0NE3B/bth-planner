@@ -165,7 +165,7 @@ function parseFragment(fragment: string, idx: CourseIndex): ParseFragmentOut {
     if (hit) {
       rules.push({
         requirement_type: 'completed_hp_in_subject',
-        required_hp: parseInt(subj[1], 10),
+        required_hp: Number.parseInt(subj[1], 10),
         required_subject_area: hit.charAt(0).toUpperCase() + hit.slice(1),
         original_text: original,
       });
