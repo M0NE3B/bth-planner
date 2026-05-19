@@ -168,7 +168,8 @@ export function normalizeRequirements(course: CourseLike): CourseRequirement[] {
   if (codes.length === 0) return [];
   const text = (course.originalRequirementsText || '').toLowerCase();
   return codes.map<CourseRequirement>((code) => {
-    if (text && new RegExp(`genomg[åa]ng[a-zåäö]*\\s+[^.]*\\b${code.toLowerCase()}\\b`).test(text)) {
+    const codeLower = code.toLowerCase();
+    if (text && new RegExp(`genomg[åa]ng[a-zåäö]{0,12}[ \\t][^.]{0,200}\\b${codeLower}\\b`).test(text)) {
       return { type: 'attended_course', courseCode: code };
     }
     return { type: 'completed_course', courseCode: code };
