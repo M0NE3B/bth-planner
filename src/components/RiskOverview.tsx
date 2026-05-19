@@ -6,7 +6,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, ShieldAlert, BookOpen, Lock, Info, Sparkles, HelpCircle } from 'lucide-react';
+import { AlertTriangle, ShieldAlert, BookOpen, Lock, Info, Sparkles } from 'lucide-react';
 import { bthPrograms } from '@/lib/programs';
 import { estimateStudyYear } from '@/lib/studyYear';
 import { COURSE_STATUS_LABEL } from '@/lib/events';
@@ -47,7 +47,7 @@ export default function RiskOverview({
   catalog, subtasks = [],
 }: RiskOverviewProps) {
   const [expanded, setExpanded] = useState(false);
-  const [metric, setMetric] = useState<null | 'overdue' | 'missing' | 'blocked' | 'manual'>(null);
+  const [metric, setMetric] = useState<null | 'overdue' | 'missing' | 'blocked'>(null);
 
   const programTemplate = useMemo(
     () => (programName ? bthPrograms.find(p => p.name === programName) : null),
@@ -127,7 +127,6 @@ export default function RiskOverview({
     course: CourseRow;
     results: RequirementResult[];
     hardUnmet: RequirementResult[];
-    manualUnmet: RequirementResult[]; // manual_review / custom_text rules
   };
 
   const analyses: Analysis[] = useMemo(() => courses
@@ -135,26 +134,16 @@ export default function RiskOverview({
     .map(c => {
       const reqs = requirementsByCode.get(c.course_code);
       if (!reqs || reqs.length === 0) {
-        return { course: c, results: [], hardUnmet: [], manualUnmet: [] };
+        return { course: c, results: [], hardUnmet: [] };
       }
       const r = evaluateCourseRequirements(
         { code: c.course_code, requirements: reqs },
         evalContext,
         { nameMap },
       );
-      // Split: hard real blockers vs manual/informational
-      const hardUnmet = r.unmet.filter(x =>
-        !x.requirement.manualReview && x.requirement.type !== 'custom_text'
-        && !(x.requirement.type === 'completed_hp_in_program_group')
-        && !(x.requirement.type === 'completed_hp_at_level')
-      );
-      const manualUnmet = r.results.filter(x =>
-        x.requirement.manualReview
-        || x.requirement.type === 'custom_text'
-        || x.requirement.type === 'completed_hp_in_program_group'
-        || x.requirement.type === 'completed_hp_at_level',
-      );
-      return { course: c, results: r.results, hardUnmet, manualUnmet };
+      // All remaining requirements are automatic — anything unmet is a real blocker.
+      const hardUnmet = r.unmet;
+      return { course: c, results: r.results, hardUnmet };
     }), [courses, requirementsByCode, evalContext, nameMap]);
 
   // 2. Saknade förkunskaper — all unique missing rules (across all not-completed courses)
@@ -172,9 +161,6 @@ export default function RiskOverview({
 
   // 3. Spärrade kurser — NOT partly (already started ⇒ assume dispens), has at least one hard unmet
   const blockedAnalyses = analyses.filter(a => a.course.status !== 'partly' && a.hardUnmet.length > 0);
-
-  // 4. Manuell kontroll — courses with manual/custom_text rules
-  const manualAnalyses = analyses.filter(a => a.manualUnmet.length > 0);
 
   // Build action-oriented recommendations.
   type Rec = { key: string; text: string; helper: string; priority: number };
@@ -249,12 +235,8 @@ export default function RiskOverview({
     key: `o-${c.course_code}`,
     text: `${fmt(c.course_code, c.course_name)} – inte avklarad från år ${c.year}`,
   }));
-  const manualDisplay = manualAnalyses.slice(0, 12).map(a => ({
-    key: `mn-${a.course.course_code}`,
-    text: `${fmt(a.course.course_code, nameOf(a.course.course_code))} – ${a.manualUnmet[0]?.message ?? 'Manuellt krav'}`,
-  }));
 
-  const totalDetails = blockedList.length + missingDisplay.length + overdueDisplay.length + manualDisplay.length;
+  const totalDetails = blockedList.length + missingDisplay.length + overdueDisplay.length;
 
   return (
     <Card>
@@ -270,20 +252,19 @@ export default function RiskOverview({
             </PopoverTrigger>
             <PopoverContent side="bottom" align="start" className="w-72 text-sm">
               Riskbilden baseras på ditt program, startår, kursstatus och förkunskapskrav från kurskatalogen.
-              Påbörjade kurser räknas inte som spärrade. Krav märkta "manuell kontroll" stoppar inte automatiskt.
+              Påbörjade kurser räknas inte som spärrade. Allt utvärderas automatiskt utifrån dina HP och kursstatus.
             </PopoverContent>
           </Popover>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
           <MetricCard icon={<BookOpen className="h-4 w-4 text-muted-foreground" />} label="Ej avklarade kurser" value={overdueCourses.length} onClick={() => setMetric('overdue')} />
           <MetricCard icon={<AlertTriangle className="h-4 w-4 text-warning" />} label="Saknade förkunskaper" value={missingList.length} emphasize={missingList.length > 0} onClick={() => setMetric('missing')} />
           <MetricCard icon={<Lock className="h-4 w-4 text-destructive" />} label="Spärrade kurser" value={blockedAnalyses.length} emphasize={blockedAnalyses.length > 0} onClick={() => setMetric('blocked')} />
-          <MetricCard icon={<HelpCircle className="h-4 w-4 text-muted-foreground" />} label="Manuell kontroll" value={manualAnalyses.length} onClick={() => setMetric('manual')} />
         </div>
 
-        {noRisks && manualAnalyses.length === 0 ? (
+        {noRisks ? (
           <p className="text-sm text-muted-foreground">Inga risker upptäckta just nu. Bra jobbat!</p>
         ) : (
           <>
@@ -313,7 +294,6 @@ export default function RiskOverview({
                     {blockedList.length > 0 && <Group title="Spärrade kurser" items={blockedList} dotClass="bg-destructive" />}
                     {missingDisplay.length > 0 && <Group title="Saknade förkunskaper" items={missingDisplay} dotClass="bg-warning" />}
                     {overdueDisplay.length > 0 && <Group title="Ej avklarade kurser" items={overdueDisplay} dotClass="bg-muted-foreground" />}
-                    {manualDisplay.length > 0 && <Group title="Manuell kontroll" items={manualDisplay} dotClass="bg-muted-foreground" />}
                   </div>
                 )}
                 <Button variant="ghost" size="sm" className="h-auto px-2 py-1 text-xs" onClick={() => setExpanded(e => !e)}>
@@ -332,7 +312,7 @@ export default function RiskOverview({
               {metric === 'overdue' && 'Ej avklarade kurser'}
               {metric === 'missing' && 'Saknade förkunskaper'}
               {metric === 'blocked' && 'Spärrade kurser'}
-              {metric === 'manual' && 'Manuell kontroll'}
+              
             </DialogTitle>
           </DialogHeader>
 
@@ -379,24 +359,6 @@ export default function RiskOverview({
                   <ul className="mt-2 space-y-1">
                     {a.hardUnmet.map((r, i) => (
                       <li key={i} className="text-sm">• {r.message}</li>
-                    ))}
-                  </ul>
-                </li>
-              ))}</ul>
-          )}
-
-          {metric === 'manual' && (manualAnalyses.length === 0
-            ? <p className="text-sm text-muted-foreground">Inga krav som kräver manuell kontroll.</p>
-            : <ul className="space-y-2">{manualAnalyses.map(a => (
-                <li key={a.course.course_code} className="rounded-md border p-3">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-mono text-sm font-semibold">{a.course.course_code}</span>
-                    <Badge variant="outline" className="text-xs">År {a.course.year}</Badge>
-                  </div>
-                  {nameOf(a.course.course_code) && <p className="text-sm text-muted-foreground mt-1">{nameOf(a.course.course_code)}</p>}
-                  <ul className="mt-2 space-y-1">
-                    {a.manualUnmet.map((r, i) => (
-                      <li key={i} className="text-sm text-muted-foreground">• {r.message}</li>
                     ))}
                   </ul>
                 </li>

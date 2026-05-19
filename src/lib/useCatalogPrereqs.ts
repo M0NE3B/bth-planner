@@ -133,7 +133,11 @@ export function buildIndex(
   for (const [targetId, rows] of byTarget) {
     const target = courseById.get(targetId);
     if (!target) continue;
-    const reqs = prereqsToRequirements(rows, courses).filter((r) => !isGymnasiumRequirement(r));
+    // Student-facing flow is fully automatic: drop gymnasium entry rules,
+    // any custom_text, and anything explicitly flagged manual_review.
+    const reqs = prereqsToRequirements(rows, courses).filter(
+      (r) => !isGymnasiumRequirement(r) && r.type !== 'custom_text' && !r.manualReview,
+    );
     if (reqs.length > 0) requirementsByCode.set(target.course_code, reqs);
     // Build blocker map (which courses does X unlock?)
     for (const r of rows) {
