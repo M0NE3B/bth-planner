@@ -42,7 +42,7 @@ export default function CourseCatalogTab() {
     setLoading(true);
     const [coursesRes, prereqRes] = await Promise.all([
       supabase.from('courses_catalog').select('*').order('course_code'),
-      supabase.from('course_prerequisites').select('target_course_id'),
+      supabase.from('course_prerequisites').select('target_course_id, manual_review, requirement_type'),
     ]);
     if (coursesRes.error) {
       toast.error('Kunde inte ladda kurser');
@@ -50,10 +50,16 @@ export default function CourseCatalogTab() {
       return;
     }
     const counts = new Map<string, number>();
+    const manualMap = new Map<string, { total: number; manual: number }>();
     for (const r of prereqRes.data ?? []) {
-      const id = (r as { target_course_id: string }).target_course_id;
-      counts.set(id, (counts.get(id) ?? 0) + 1);
+      const row = r as { target_course_id: string; manual_review: boolean; requirement_type: string };
+      counts.set(row.target_course_id, (counts.get(row.target_course_id) ?? 0) + 1);
+      const cur = manualMap.get(row.target_course_id) ?? { total: 0, manual: 0 };
+      cur.total += 1;
+      if (row.manual_review || row.requirement_type === 'custom_text') cur.manual += 1;
+      manualMap.set(row.target_course_id, cur);
     }
+    setManualByCourse(manualMap);
     setCourses((coursesRes.data ?? []).map((c) => ({
       ...(c as unknown as CatalogCourse),
       prereq_count: counts.get((c as { id: string }).id) ?? 0,
