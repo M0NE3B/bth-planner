@@ -19,6 +19,8 @@ export default function MigrationTab() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [report, setReport] = useState<MigrationReport | null>(null);
   const [lastBackfill, setLastBackfill] = useState<BackfillResult | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [lastSync, setLastSync] = useState<UserSyncResult | null>(null);
 
   const load = async () => {
     setLoading(true);
