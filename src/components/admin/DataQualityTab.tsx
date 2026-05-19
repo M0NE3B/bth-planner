@@ -191,6 +191,43 @@ export default function DataQualityTab() {
       tone: 'info',
     });
 
+    // Year/semester sanity checks per program
+    const yearSemesterIssues: string[] = [];
+    for (const p of programs) {
+      if (!p.active) continue;
+      const lengthYears = p.total_hp != null && Number(p.total_hp) > 0
+        ? Math.max(3, Math.ceil(Number(p.total_hp) / 60))
+        : 5;
+      const maxSemester = lengthYears * 2;
+      const rows = pc.filter(r => r.program_id === p.id);
+      for (const r of rows) {
+        const c = courseById.get(r.course_id);
+        const code = c?.course_code ?? r.course_id;
+        if (r.year > lengthYears) {
+          yearSemesterIssues.push(
+            `${p.name}: ${code} placerad i år ${r.year} (programmet är ${lengthYears} år)`,
+          );
+        }
+        // semester is a string in DB (e.g. "HT2024", "HT", "VT") — validate when "HTYYYY"/"VTYYYY"
+        const sem = (r.semester ?? '').trim();
+        const termMatch = sem.match(/^(HT|VT)\s*(\d{4})?$/i);
+        if (termMatch) {
+          const overallSem = (r.year - 1) * 2 + (termMatch[1].toUpperCase() === 'HT' ? 1 : 2);
+          if (overallSem > maxSemester) {
+            yearSemesterIssues.push(
+              `${p.name}: ${code} → år ${r.year}/${sem} ger termin ${overallSem} (max ${maxSemester})`,
+            );
+          }
+        }
+      }
+    }
+    result.push({
+      key: 'year-semester',
+      title: 'Omöjlig år/termin-placering',
+      description: 'Programkurser placerade utanför programmets längd (baserat på Total HP / 60).',
+      items: yearSemesterIssues,
+    });
+
     return result;
   }, [courses, programs, pc, prereqs]);
 
