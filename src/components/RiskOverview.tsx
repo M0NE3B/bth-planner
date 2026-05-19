@@ -294,7 +294,6 @@ export default function RiskOverview({
                     {blockedList.length > 0 && <Group title="Spärrade kurser" items={blockedList} dotClass="bg-destructive" />}
                     {missingDisplay.length > 0 && <Group title="Saknade förkunskaper" items={missingDisplay} dotClass="bg-warning" />}
                     {overdueDisplay.length > 0 && <Group title="Ej avklarade kurser" items={overdueDisplay} dotClass="bg-muted-foreground" />}
-                    {manualDisplay.length > 0 && <Group title="Manuell kontroll" items={manualDisplay} dotClass="bg-muted-foreground" />}
                   </div>
                 )}
                 <Button variant="ghost" size="sm" className="h-auto px-2 py-1 text-xs" onClick={() => setExpanded(e => !e)}>
