@@ -6,6 +6,7 @@ import AuthPage from '@/components/AuthPage';
 import LandingPage from '@/components/LandingPage';
 import IntroAnimation from '@/components/IntroAnimation';
 import ProgramSetupPage from '@/components/ProgramSetupPage';
+import CourseStatusOnboardingPage from '@/components/CourseStatusOnboardingPage';
 import CourseStatusPage from '@/components/CourseStatusPage';
 import AppLayout from '@/components/AppLayout';
 import Dashboard from '@/components/Dashboard';
