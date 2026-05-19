@@ -2,6 +2,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DateInput } from '@/components/ui/date-input';
+import { TimeInput } from '@/components/ui/time-input';
 import { EVENT_TYPE_OPTIONS, EVENT_STATUS_OPTIONS } from '@/lib/events';
 
 export interface EventFormFieldsCourse {
@@ -96,11 +98,11 @@ export default function EventFormFields({
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label htmlFor={`${idPrefix}-date`}>Datum *</Label>
-          <Input id={`${idPrefix}-date`} type="date" value={fDate} onChange={e => setFDate(e.target.value)} required />
+          <DateInput id={`${idPrefix}-date`} value={fDate} onChange={setFDate} required />
         </div>
         <div>
           <Label htmlFor={`${idPrefix}-time`}>Tid</Label>
-          <Input id={`${idPrefix}-time`} type="time" value={fTime} onChange={e => setFTime(e.target.value)} />
+          <TimeInput id={`${idPrefix}-time`} value={fTime} onChange={setFTime} />
         </div>
       </div>
       <div>

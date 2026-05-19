@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Save } from 'lucide-react';
 import { toast } from 'sonner';
+import { DateInput } from '@/components/ui/date-input';
+import { TimeInput } from '@/components/ui/time-input';
 import { EVENT_TYPE_OPTIONS, parseHpInput } from '@/lib/events';
 
 interface AddEventPageProps {
@@ -148,11 +150,11 @@ export default function AddEventPage({ userId }: AddEventPageProps) {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label htmlFor="dueDate">Datum *</Label>
-                <Input id="dueDate" type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} required />
+                <DateInput id="dueDate" value={dueDate} onChange={setDueDate} required />
               </div>
               <div>
                 <Label htmlFor="dueTime">Tid</Label>
-                <Input id="dueTime" type="time" value={dueTime} onChange={e => setDueTime(e.target.value)} />
+                <TimeInput id="dueTime" value={dueTime} onChange={setDueTime} />
               </div>
             </div>
 

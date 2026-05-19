@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
+import { DateInput } from '@/components/ui/date-input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -372,12 +373,11 @@ function NewSubtaskForm({
             <SelectItem value="other">📌 Annat</SelectItem>
           </SelectContent>
         </Select>
-        <Input
-          type="date"
-          placeholder="Datum"
+        <DateInput
           value={date}
-          onChange={e => setDate(e.target.value)}
-          className="h-8 text-sm flex-1 min-w-[120px]"
+          onChange={setDate}
+          className="h-8 text-sm flex-1 min-w-[140px]"
+          placeholder="Datum"
         />
         <Input
           type="number"
