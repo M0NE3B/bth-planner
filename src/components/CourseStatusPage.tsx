@@ -280,11 +280,6 @@ function PrereqInfo({
           </ul>
         </div>
       )}
-      {hasOriginal && (
-        <p className="text-xs text-muted-foreground italic pl-4">
-          Originalkrav: {originalText}
-        </p>
-      )}
       {hasBlocks && (
         <div className="flex items-start gap-1.5 text-xs">
           <ArrowRight className="h-3 w-3 text-muted-foreground mt-0.5 shrink-0" />
