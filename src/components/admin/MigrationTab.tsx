@@ -170,7 +170,7 @@ export default function MigrationTab() {
 }
 
 function Stat({ label, value, tone }: { label: string; value: number; tone?: 'ok' | 'warn' }) {
-  const color = tone === 'warn' ? 'text-destructive' : tone === 'ok' ? 'text-foreground' : 'text-foreground';
+  const color = tone === 'warn' ? 'text-destructive' : 'text-foreground';
   return (
     <div className="rounded-md border border-border p-3">
       <div className="text-xs text-muted-foreground">{label}</div>
