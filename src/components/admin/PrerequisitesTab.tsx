@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/table';
 import { Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import PrereqNormalizeCard from './PrereqNormalizeCard';
 import { toast } from 'sonner';
 import type { CatalogCourse, CatalogPrerequisite, RequirementType } from '@/lib/catalog';
 
