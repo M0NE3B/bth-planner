@@ -1154,6 +1154,25 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
     }
   };
 
+  const addDateToSubtask = async (subtask: Subtask, dueDate: string) => {
+    if (!dueDate) return;
+    const course = courses.find(c => c.id === subtask.course_id);
+    let eventId = subtask.event_id;
+    if (!eventId && course) {
+      eventId = await createLinkedEvent(subtask.title, dueDate, course, subtask.type, subtask.hp);
+    } else if (eventId) {
+      await supabase.from('study_events').update({ due_date: dueDate }).eq('id', eventId);
+    }
+    const { error } = await supabase.from('course_subtasks')
+      .update({ due_date: dueDate, event_id: eventId }).eq('id', subtask.id);
+    if (error) {
+      toast.error('Kunde inte spara datum');
+      return;
+    }
+    setSubtasks(prev => prev.map(s => s.id === subtask.id ? { ...s, due_date: dueDate, event_id: eventId } : s));
+    toast.success('Datum tillagt');
+  };
+
   const getPrereqStatus = (courseCode: string): PrereqStatus | null => {
     const prereqs = prereqMap.get(courseCode);
     if (!prereqs || prereqs.length === 0) return null;
