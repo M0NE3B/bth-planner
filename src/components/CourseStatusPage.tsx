@@ -214,7 +214,7 @@ function AddCourseDialog({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-sm font-semibold text-foreground">{course.code}</span>
-                      <Badge variant="outline" className="text-xs">{course.hp} hp</Badge>
+                      <Badge variant="outline" className="text-xs">{formatHp(course.hp)} hp</Badge>
                     </div>
                     <p className="text-sm text-muted-foreground truncate">{course.name}</p>
                   </div>
