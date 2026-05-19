@@ -67,3 +67,18 @@ export async function runCatalogBackfill(): Promise<BackfillResult> {
   if (error) throw error;
   return data as unknown as BackfillResult;
 }
+
+export interface UserSyncResult {
+  profiles_remapped: number;
+  catalog_links_added: number;
+  mandatory_seeded: number;
+  orphans_removed: number;
+  ran_at: string;
+}
+
+export async function runExistingUsersSync(): Promise<UserSyncResult> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('admin_sync_existing_users_to_catalog');
+  if (error) throw error;
+  return data as UserSyncResult;
+}
