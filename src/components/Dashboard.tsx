@@ -17,6 +17,7 @@ import { bthPrograms } from '@/lib/programs';
 import RiskOverview from '@/components/RiskOverview';
 import EventFormFields from '@/components/EventFormFields';
 import { EVENT_TYPE_LABEL as TYPE_LABEL, EVENT_STATUS_LABEL as STATUS_LABEL, COURSE_STATUS_LABEL, parseHpInput } from '@/lib/events';
+import { useCatalogPrereqs } from '@/lib/useCatalogPrereqs';
 
 interface DashboardProps {
   userId: string;
