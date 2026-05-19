@@ -547,7 +547,7 @@ function CourseCard(props: CourseCardProps) {
               </CourseInfoPopover>
               <span className="text-foreground">{course.course_name}</span>
               <span className="text-muted-foreground" aria-hidden="true">·</span>
-              <span className="text-muted-foreground">{course.hp} HP</span>
+              <span className="text-muted-foreground">{formatHp(course.hp)} HP</span>
               {courseSubtasks.length > 0 && (
                 <Badge variant="secondary" className="text-xs">
                   {completedSubs}/{courseSubtasks.length} delmoment
