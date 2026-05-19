@@ -896,7 +896,7 @@ function MetricDetailDialog({
           <li key={c.id} className="rounded-md border p-3">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-mono text-sm font-semibold text-foreground">{c.course_code}</span>
-              <Badge variant="outline" className="text-xs">{c.hp} HP</Badge>
+              <Badge variant="outline" className="text-xs">{formatHp(c.hp)} HP</Badge>
               <Badge variant="outline" className="text-xs">År {c.year}</Badge>
             </div>
             {c.course_name && <p className="text-sm text-muted-foreground mt-1">{c.course_name}</p>}
