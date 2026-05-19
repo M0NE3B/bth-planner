@@ -48,9 +48,37 @@ export default function CourseEditorSheet({ open, course, allCourses, onClose, o
   });
   const [prereqs, setPrereqs] = useState<PrerequisiteInput[]>([]);
   const [saving, setSaving] = useState(false);
+  const [subjects, setSubjects] = useState<string[]>([]);
+  const [programs, setPrograms] = useState<ProgramLink[]>([]);
+
 
   useEffect(() => {
     if (!open) return;
+    // Load distinct subject areas for the combobox
+    supabase.from('courses_catalog').select('subject_area').then(({ data }) => {
+      const s = new Set<string>();
+      for (const r of data ?? []) {
+        const v = (r as { subject_area: string | null }).subject_area?.trim();
+        if (v) s.add(v);
+      }
+      setSubjects(Array.from(s).sort());
+    });
+    if (course) {
+      // Load programs this course belongs to
+      supabase
+        .from('program_courses')
+        .select('year, semester, programs_catalog!inner(id, name)')
+        .eq('course_id', course.id)
+        .then(({ data }) => {
+          const rows = (data ?? []).map((r) => {
+            const row = r as unknown as { year: number; semester: string | null; programs_catalog: { id: string; name: string } };
+            return { id: row.programs_catalog.id, name: row.programs_catalog.name, year: row.year, semester: row.semester };
+          });
+          setPrograms(rows);
+        });
+    } else {
+      setPrograms([]);
+    }
     if (course) {
       setForm({
         course_code: course.course_code,
