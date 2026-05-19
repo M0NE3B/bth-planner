@@ -101,13 +101,16 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
   // Build map: courseCode -> array of courses it blocks. Catalog first, fallback to template.
   const blockingMap = useMemo(() => {
     const map = new Map<string, { code: string; year: number; semester?: 'HT' | 'VT' }[]>();
+    // Only count blockers that actually exist in the student's plan
+    const planCodes = new Set(courses.map(c => c.course_code).filter(Boolean) as string[]);
+    const yearByCode = new Map(courses.filter(c => c.course_code).map(c => [c.course_code as string, c.year]));
     // Catalog
     if (catalog.blocksByCode.size > 0) {
-      const yearByCode = new Map(courses.filter(c => c.course_code).map(c => [c.course_code as string, c.year]));
       for (const [pre, targets] of catalog.blocksByCode) {
         for (const code of targets) {
+          if (!planCodes.has(code)) continue;
           const arr = map.get(pre) || [];
-          arr.push({ code, year: yearByCode.get(code) ?? 99 });
+          if (!arr.some(x => x.code === code)) arr.push({ code, year: yearByCode.get(code) ?? 99 });
           map.set(pre, arr);
         }
       }
@@ -117,6 +120,7 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
     if (!program) return map;
     program.courses.forEach(c => {
       (c.prerequisites || []).forEach(pre => {
+        if (!planCodes.has(c.code)) return;
         const arr = map.get(pre) || [];
         if (!arr.some(x => x.code === c.code)) arr.push({ code: c.code, year: c.year, semester: c.semester });
         map.set(pre, arr);
@@ -124,6 +128,7 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
     });
     return map;
   }, [programName, catalog, courses]);
+
 
   // Avoid double counting: completed courses count full HP; for non-completed
   // courses, count completed delmoment HP as "partly" (capped by course HP).
