@@ -741,8 +741,6 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
     if (programTemplate) for (const c of programTemplate.courses) add(c.code, c.subject);
     for (const c of allBthCourses) add(c.code, c.subject);
     for (const c of courses) add(c.course_code);
-    // ensure variable `code` is referenced for lint
-    void code => code;
     return m;
   }, [programTemplate, allBthCourses, courses, catalog.courseByCode]);
 
