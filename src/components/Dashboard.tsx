@@ -90,13 +90,14 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
       supabase.from('study_events').select('*').eq('user_id', userId).order('due_date', { ascending: true }),
       supabase.from('user_courses').select('id, status, hp, year, course_code, course_name').eq('user_id', userId),
       supabase.from('course_subtasks').select('id, course_id, event_id, hp, completed').eq('user_id', userId),
-      supabase.from('profiles').select('program_name').eq('user_id', userId).maybeSingle(),
+      supabase.from('profiles').select('program_name, onboarding_checklist_dismissed').eq('user_id', userId).maybeSingle(),
     ]);
 
     if (eventsRes.data) setEvents(eventsRes.data as StudyEvent[]);
     if (coursesRes.data) setCourses(coursesRes.data as CourseData[]);
     if (subtasksRes.data) setSubtasks(subtasksRes.data as LinkedSubtask[]);
     if (profileRes.data?.program_name) setProgramName(profileRes.data.program_name);
+    setShowChecklist(!(profileRes.data?.onboarding_checklist_dismissed ?? false));
     setLoading(false);
   };
 
