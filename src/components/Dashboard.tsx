@@ -21,6 +21,7 @@ import { useCatalogPrereqs } from '@/lib/useCatalogPrereqs';
 import { computeHpUnlockMap, computeUnlockBonus, type UnlockEntry } from '@/lib/hpUnlock';
 import { resolveSubject, type EvalContext } from '@/lib/prerequisites';
 import { formatHp } from '@/lib/utils';
+import OnboardingChecklist from '@/components/OnboardingChecklist';
 
 interface DashboardProps {
   userId: string;
@@ -64,6 +65,7 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
   const [courses, setCourses] = useState<CourseData[]>([]);
   const [subtasks, setSubtasks] = useState<LinkedSubtask[]>([]);
   const [programName, setProgramName] = useState<string | null>(null);
+  const [showChecklist, setShowChecklist] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<StudyEvent | null>(null);
   const [editing, setEditing] = useState(false);
@@ -89,13 +91,14 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
       supabase.from('study_events').select('*').eq('user_id', userId).order('due_date', { ascending: true }),
       supabase.from('user_courses').select('id, status, hp, year, course_code, course_name').eq('user_id', userId),
       supabase.from('course_subtasks').select('id, course_id, event_id, hp, completed').eq('user_id', userId),
-      supabase.from('profiles').select('program_name').eq('user_id', userId).maybeSingle(),
+      supabase.from('profiles').select('program_name, onboarding_checklist_dismissed').eq('user_id', userId).maybeSingle(),
     ]);
 
     if (eventsRes.data) setEvents(eventsRes.data as StudyEvent[]);
     if (coursesRes.data) setCourses(coursesRes.data as CourseData[]);
     if (subtasksRes.data) setSubtasks(subtasksRes.data as LinkedSubtask[]);
     if (profileRes.data?.program_name) setProgramName(profileRes.data.program_name);
+    setShowChecklist(!(profileRes.data?.onboarding_checklist_dismissed ?? false));
     setLoading(false);
   };
 
@@ -528,6 +531,14 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
 
   return (
     <div className="space-y-6 md:mt-12 animate-slide-up">
+      {showChecklist && (
+        <OnboardingChecklist
+          userId={userId}
+          onDismissed={() => setShowChecklist(false)}
+          onFocusRisk={() => document.getElementById('risk-overview')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+          onFocusNext={() => document.getElementById('focus-next')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+        />
+      )}
       {/* HP Progress */}
       <Card>
         <CardHeader className="pb-3">
@@ -591,7 +602,7 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
       </div>
 
       {/* Fokus näst */}
-      <Card>
+      <Card id="focus-next" className="scroll-mt-24">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-3">
             <CardTitle className="flex items-center gap-2 font-heading">
@@ -660,6 +671,7 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
       </Card>
 
       {/* Riskbild & rekommendationer */}
+      <div id="risk-overview" className="scroll-mt-24">
       <RiskOverview
         courses={courses.map(c => ({
           course_code: c.course_code || '',
@@ -681,6 +693,9 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
           hp: Number(s.hp) || 0,
         }))}
       />
+      </div>
+
+
 
 
       {/* Detail modal */}

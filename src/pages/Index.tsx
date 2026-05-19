@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Session } from '@supabase/supabase-js';
 import AuthPage from '@/components/AuthPage';
@@ -19,6 +19,7 @@ import SettingsPage from '@/components/SettingsPage';
 const INTRO_KEY = 'bth_intro_shown';
 
 export default function Index() {
+  const navigate = useNavigate();
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [setupComplete, setSetupComplete] = useState<boolean | null>(null);
@@ -138,7 +139,10 @@ export default function Index() {
         {showIntro && <IntroAnimation onDone={() => setShowIntro(false)} />}
         <CourseStatusOnboardingPage
           userId={session.user.id}
-          onComplete={() => checkProfile(session.user.id)}
+          onComplete={async () => {
+            navigate('/', { replace: true });
+            await checkProfile(session.user.id);
+          }}
         />
       </>
     );
