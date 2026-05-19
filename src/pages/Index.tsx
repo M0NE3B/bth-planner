@@ -19,6 +19,7 @@ import SettingsPage from '@/components/SettingsPage';
 const INTRO_KEY = 'bth_intro_shown';
 
 export default function Index() {
+  const navigate = useNavigate();
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [setupComplete, setSetupComplete] = useState<boolean | null>(null);
