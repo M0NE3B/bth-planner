@@ -828,19 +828,19 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
     if (!programName) { setElectives([]); return; }
     let cancelled = false;
     (async () => {
-      const prog = await (supabase.from('programs_catalog' as never) as unknown as {
-        select: (s: string) => { eq: (a: string, b: unknown) => { eq: (a: string, b: unknown) => { maybeSingle: () => Promise<{ data: { id: string } | null }> } } }
-      }).select('id').eq('name', programName).eq('active', true).maybeSingle();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sb = supabase as any;
+      const prog = await sb.from('programs_catalog')
+        .select('id').eq('name', programName).eq('active', true).maybeSingle();
       if (cancelled || !prog.data) { setElectives([]); return; }
-      const programId = prog.data.id;
-      const pc = await (supabase.from('program_courses' as never) as unknown as {
-        select: (s: string) => { eq: (a: string, b: unknown) => { eq: (a: string, b: unknown) => { order: (c: string, o: { ascending: boolean }) => Promise<{ data: unknown[] | null }> } } }
-      }).select('year, mandatory, course:courses_catalog(id, course_code, course_name, hp, subject_area)')
+      const programId = (prog.data as { id: string }).id;
+      const pc = await sb.from('program_courses')
+        .select('year, mandatory, course:courses_catalog(id, course_code, course_name, hp, subject_area)')
         .eq('program_id', programId)
         .eq('mandatory', false)
         .order('year', { ascending: true });
-
       if (cancelled || !pc.data) { setElectives([]); return; }
+
       type Row = { year: number; mandatory: boolean; course: { id: string; course_code: string; course_name: string; hp: number; subject_area: string | null } | null };
       const list: ElectiveOption[] = ((pc.data as unknown) as Row[])
         .filter(r => r.course)
