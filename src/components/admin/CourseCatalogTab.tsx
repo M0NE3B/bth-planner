@@ -272,3 +272,12 @@ export default function CourseCatalogTab() {
     </div>
   );
 }
+
+function StatBox({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-md border border-border p-2 bg-muted/30">
+      <p className="text-[11px] text-muted-foreground">{label}</p>
+      <p className="text-base font-semibold">{value}</p>
+    </div>
+  );
+}
