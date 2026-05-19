@@ -6,17 +6,25 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, ShieldAlert, BookOpen, Lock, Info, Sparkles } from 'lucide-react';
+import { AlertTriangle, ShieldAlert, BookOpen, Lock, Info, Sparkles, HelpCircle } from 'lucide-react';
 import { bthPrograms } from '@/lib/programs';
 import { estimateStudyYear } from '@/lib/studyYear';
 import { COURSE_STATUS_LABEL } from '@/lib/events';
+import {
+  evaluateCourseRequirements, normalizeRequirements,
+  type CourseRequirement, type RequirementResult, resolveSubject,
+} from '@/lib/prerequisites';
+import type { CatalogPrereqIndex } from '@/lib/useCatalogPrereqs';
 
 interface CourseRow {
   course_code: string;
   course_name?: string;
   year: number;
   status: string;
+  hp?: number;
 }
+
+interface SubtaskRow { course_id: string; course_code?: string; completed: boolean; hp: number; }
 
 interface RiskOverviewProps {
   courses: CourseRow[];
@@ -25,41 +33,52 @@ interface RiskOverviewProps {
   compact?: boolean;
   upcomingEventsCount?: number;
   unfinishedSubtasksCount?: number;
+  catalog?: CatalogPrereqIndex;
+  subtasks?: SubtaskRow[];
 }
 
-const MAX_NAME_LEN = 32;
-
-function fmtCourse(code: string, name?: string) {
-  if (!name) return code;
-  if (name.length <= MAX_NAME_LEN) return `${name} (${code})`;
-  return `${code} – ${name.slice(0, MAX_NAME_LEN).trim()}…`;
+function fmt(code: string, name?: string | null) {
+  return name ? `${name} (${code})` : code;
 }
 
 export default function RiskOverview({
   courses, programName, startYear, compact = true,
   upcomingEventsCount = 0, unfinishedSubtasksCount = 0,
+  catalog, subtasks = [],
 }: RiskOverviewProps) {
   const [expanded, setExpanded] = useState(false);
-  const [metric, setMetric] = useState<null | 'overdue' | 'missing' | 'blocked'>(null);
+  const [metric, setMetric] = useState<null | 'overdue' | 'missing' | 'blocked' | 'manual'>(null);
 
   const programTemplate = useMemo(
     () => (programName ? bthPrograms.find(p => p.name === programName) : null),
     [programName],
   );
 
-  const { prereqMap, templateNameMap } = useMemo(() => {
-    const prereq = new Map<string, string[]>();
-    const names = new Map<string, string>();
+  // Build a unified requirements map: catalog first, fall back to template.
+  const requirementsByCode = useMemo<Map<string, CourseRequirement[]>>(() => {
+    const m = new Map<string, CourseRequirement[]>();
     if (programTemplate) {
       for (const c of programTemplate.courses) {
-        names.set(c.code, c.name);
-        if (c.prerequisites && c.prerequisites.length) {
-          prereq.set(c.code, c.prerequisites);
-        }
+        const reqs = normalizeRequirements(c);
+        if (reqs.length) m.set(c.code, reqs);
       }
     }
-    return { prereqMap: prereq, templateNameMap: names };
-  }, [programTemplate]);
+    if (catalog) {
+      for (const [code, reqs] of catalog.requirementsByCode) m.set(code, reqs);
+    }
+    return m;
+  }, [programTemplate, catalog]);
+
+  // Name map combining template + catalog + user courses
+  const nameMap = useMemo(() => {
+    const m = new Map<string, string>();
+    if (programTemplate) for (const c of programTemplate.courses) m.set(c.code, c.name);
+    if (catalog) for (const [code, name] of catalog.codeToName) m.set(code, name);
+    for (const c of courses) if (c.course_name) m.set(c.course_code, c.course_name);
+    return m;
+  }, [programTemplate, catalog, courses]);
+
+  const nameOf = (code: string) => nameMap.get(code);
 
   const courseByCode = useMemo(() => {
     const m = new Map<string, CourseRow>();
@@ -67,265 +86,212 @@ export default function RiskOverview({
     return m;
   }, [courses]);
 
-  const nameOf = (code: string) =>
-    courseByCode.get(code)?.course_name || templateNameMap.get(code);
+  const courseIdToCode = useMemo(() => {
+    const m = new Map<string, string>();
+    // subtasks pass either course_id or course_code; we accept both via SubtaskRow
+    for (const c of courses as Array<CourseRow & { id?: string }>) {
+      if (c.id) m.set(c.id, c.course_code);
+    }
+    return m;
+  }, [courses]);
+
+  // EvalContext for catalog/template requirement evaluation
+  const evalContext = useMemo(() => ({
+    courses: courses.map(c => ({
+      course_code: c.course_code,
+      status: c.status,
+      hp: Number(c.hp ?? 0),
+      subject: resolveSubject(c.course_code).primary,
+    })),
+    subtasks: subtasks.map(s => ({
+      course_code: s.course_code ?? courseIdToCode.get(s.course_id) ?? '',
+      completed: s.completed,
+      hp: Number(s.hp) || 0,
+    })),
+  }), [courses, subtasks, courseIdToCode]);
 
   const estimate = startYear ? estimateStudyYear(startYear) : null;
   const currentStudyYear = estimate?.year ?? 1;
 
+  // 1. Ej avklarade kurser (previous/current years not completed)
   const overdueCourses = courses.filter(
     c => c.year <= currentStudyYear && c.status !== 'completed',
   );
 
-  const partlyCourses = courses.filter(c => c.status === 'partly');
-
-  type PrereqKind = 'met' | 'soft' | 'hard';
-  const prereqKind = (code: string): PrereqKind => {
-    const s = courseByCode.get(code)?.status;
-    if (s === 'completed') return 'met';
-    if (s === 'partly') return 'soft';
-    return 'hard'; // not_started OR not in user's plan at all
-  };
-
-  type CourseAnalysis = {
+  // Evaluate each not-completed-not-partly course's requirements
+  type Analysis = {
     course: CourseRow;
-    hardUnmet: string[]; // prereq not started
-    softUnmet: string[]; // prereq partly
+    results: RequirementResult[];
+    hardUnmet: RequirementResult[];
+    manualUnmet: RequirementResult[]; // manual_review / custom_text rules
   };
 
-  // Only "Ej påbörjad" (not_started) courses can be considered "blocked"
-  // by missing prerequisites. Partly-completed courses are treated as already
-  // started and never appear as blocking risks.
-  const notStartedAnalyses: CourseAnalysis[] = courses
-    .filter(c => c.status !== 'completed' && c.status !== 'partly')
+  const analyses: Analysis[] = useMemo(() => courses
+    .filter(c => c.status !== 'completed')
     .map(c => {
-      const prereqs = prereqMap.get(c.course_code) || [];
-      const hardUnmet: string[] = [];
-      const softUnmet: string[] = [];
-      for (const p of prereqs) {
-        const k = prereqKind(p);
-        if (k === 'hard') hardUnmet.push(p);
-        else if (k === 'soft') softUnmet.push(p);
+      const reqs = requirementsByCode.get(c.course_code);
+      if (!reqs || reqs.length === 0) {
+        return { course: c, results: [], hardUnmet: [], manualUnmet: [] };
       }
-      return { course: c, hardUnmet, softUnmet };
-    });
+      const r = evaluateCourseRequirements(
+        { code: c.course_code, requirements: reqs },
+        evalContext,
+        { nameMap },
+      );
+      // Split: hard real blockers vs manual/informational
+      const hardUnmet = r.unmet.filter(x =>
+        !x.requirement.manualReview && x.requirement.type !== 'custom_text'
+        && !(x.requirement.type === 'completed_hp_in_program_group')
+        && !(x.requirement.type === 'completed_hp_at_level')
+      );
+      const manualUnmet = r.results.filter(x =>
+        x.requirement.manualReview
+        || x.requirement.type === 'custom_text'
+        || x.requirement.type === 'completed_hp_in_program_group'
+        || x.requirement.type === 'completed_hp_at_level',
+      );
+      return { course: c, results: r.results, hardUnmet, manualUnmet };
+    }), [courses, requirementsByCode, evalContext, nameMap]);
 
-  // A course is "blocked" if it is not started AND has at least one hard (not started) prereq.
-  const blockedCourses = notStartedAnalyses.filter(a => a.hardUnmet.length > 0);
+  // 2. Saknade förkunskaper — all unique missing rules (across all not-completed courses)
+  type MissingItem = { key: string; req: CourseRequirement; result: RequirementResult; affects: Set<string> };
+  const missingMap = new Map<string, MissingItem>();
+  for (const a of analyses) {
+    for (const r of a.hardUnmet) {
+      const key = ruleKey(r.requirement);
+      const item = missingMap.get(key) ?? { key, req: r.requirement, result: r, affects: new Set() };
+      item.affects.add(a.course.course_code);
+      missingMap.set(key, item);
+    }
+  }
+  const missingList = Array.from(missingMap.values());
 
-  // Upcoming (future-year) not started courses with any unmet prereq (hard or soft)
-  const upcomingMissing = notStartedAnalyses.filter(
-    a => a.course.year > currentStudyYear && (a.hardUnmet.length > 0 || a.softUnmet.length > 0),
-  );
+  // 3. Spärrade kurser — NOT partly (already started ⇒ assume dispens), has at least one hard unmet
+  const blockedAnalyses = analyses.filter(a => a.course.status !== 'partly' && a.hardUnmet.length > 0);
 
-  // Build recommendations grouped by prereq. Severity per prereq is "hard" if
-  // at least one dependent course lists it as a hard prereq, else "soft".
-  type RecGroup = {
-    prereq: string;
-    severity: 'hard' | 'soft';
-    affects: { code: string; year: number }[];
-    minYear: number;
-  };
-  const recsByPrereq = new Map<string, RecGroup>();
-  for (const a of notStartedAnalyses) {
-    const addPrereq = (p: string, isHard: boolean) => {
-      const g = recsByPrereq.get(p) || {
-        prereq: p, severity: 'soft' as 'hard' | 'soft', affects: [], minYear: Infinity,
-      };
-      if (isHard) g.severity = 'hard';
+  // 4. Manuell kontroll — courses with manual/custom_text rules
+  const manualAnalyses = analyses.filter(a => a.manualUnmet.length > 0);
+
+  // Build action-oriented recommendations.
+  type Rec = { key: string; text: string; helper: string; priority: number };
+  const recs: Rec[] = [];
+
+  // Priority 1: blocked CURRENT-year courses
+  const currentBlocked = blockedAnalyses.filter(a => a.course.year <= currentStudyYear);
+  // Priority 2: blocked upcoming (next-year) courses
+  const upcomingBlocked = blockedAnalyses.filter(a => a.course.year === currentStudyYear + 1);
+
+  // Group recommendations by the requirement that unlocks things
+  type RecGroup = { req: CourseRequirement; result: RequirementResult; affects: { code: string; year: number }[]; minYear: number };
+  const recGroups = new Map<string, RecGroup>();
+  const addGroup = (a: Analysis) => {
+    for (const r of a.hardUnmet) {
+      const key = ruleKey(r.requirement);
+      const g = recGroups.get(key) ?? { req: r.requirement, result: r, affects: [], minYear: Infinity };
       if (!g.affects.some(x => x.code === a.course.course_code)) {
         g.affects.push({ code: a.course.course_code, year: a.course.year });
       }
       if (a.course.year < g.minYear) g.minYear = a.course.year;
-      recsByPrereq.set(p, g);
-    };
-    for (const p of a.hardUnmet) addPrereq(p, true);
-    for (const p of a.softUnmet) addPrereq(p, false);
-  }
-  const sortedRecs = Array.from(recsByPrereq.values()).sort((a, b) => {
-    // hard before soft, then earliest blocked year, then most affected
-    if (a.severity !== b.severity) return a.severity === 'hard' ? -1 : 1;
-    if (a.minYear !== b.minYear) return a.minYear - b.minYear;
-    return b.affects.length - a.affects.length;
-  });
-
-  type Rec = { key: string; text: string; helper: string };
-  const blockingRecs: Rec[] = sortedRecs.slice(0, 3).map(g => {
-    const focusLabel = fmtCourse(g.prereq, nameOf(g.prereq));
-    const affectsShown = g.affects.slice(0, 3).map(a => fmtCourse(a.code, nameOf(a.code))).join(', ');
-    const more = g.affects.length > 3 ? ` +${g.affects.length - 3}` : '';
-    const verb = g.severity === 'hard' ? 'Fokusera på' : 'Slutför';
-    return {
-      key: `rec-${g.prereq}`,
-      text: `${verb} ${focusLabel}`,
-      helper: `Behövs för ${affectsShown}${more}`,
-    };
-  });
-
-  // Fallback recommendations when there are no hard blocks pulling focus.
-  const fallbackRecs: Rec[] = [];
-  if (blockingRecs.length === 0) {
-    if (partlyCourses.length > 0) {
-      const sample = partlyCourses
-        .slice(0, 3)
-        .map(c => fmtCourse(c.course_code, c.course_name))
-        .join(', ');
-      const more = partlyCourses.length > 3 ? ` +${partlyCourses.length - 3}` : '';
-      fallbackRecs.push({
-        key: 'fb-active',
-        text: 'Fokusera på aktiva kurser',
-        helper: `Du har kurser som är delvis avklarade och bör slutföras: ${sample}${more}.`,
-      });
+      recGroups.set(key, g);
     }
-    const oldOverdue = overdueCourses.filter(c => c.year < currentStudyYear);
-    if (oldOverdue.length > 0) {
-      const sample = oldOverdue
-        .slice(0, 3)
-        .map(c => fmtCourse(c.course_code, c.course_name))
-        .join(', ');
-      const more = oldOverdue.length > 3 ? ` +${oldOverdue.length - 3}` : '';
-      fallbackRecs.push({
-        key: 'fb-retake',
-        text: 'Planera omtentor eller kompletteringar',
-        helper: `Du har kurser från tidigare år som inte är avklarade: ${sample}${more}.`,
-      });
+  };
+  for (const a of currentBlocked) addGroup(a);
+  for (const a of upcomingBlocked) addGroup(a);
+
+  const sortedGroups = Array.from(recGroups.values()).sort((a, b) => a.minYear - b.minYear || b.affects.length - a.affects.length);
+  for (const g of sortedGroups.slice(0, 3)) {
+    const unlocks = g.affects.slice(0, 2).map(x => fmt(x.code, nameOf(x.code))).join(', ');
+    const more = g.affects.length > 2 ? ` +${g.affects.length - 2}` : '';
+    recs.push({
+      key: `g-${g.req.type}-${recGroups.size}-${recs.length}`,
+      text: focusText(g.req, g.result, nameOf),
+      helper: `Låser upp ${unlocks}${more}`,
+      priority: g.minYear <= currentStudyYear ? 0 : 1,
+    });
+  }
+
+  // Fallback: no blockers
+  if (recs.length === 0) {
+    const partlyCourses = courses.filter(c => c.status === 'partly');
+    if (partlyCourses.length > 0) {
+      const sample = partlyCourses.slice(0, 2).map(c => fmt(c.course_code, c.course_name)).join(', ');
+      recs.push({ key: 'fb-active', text: 'Slutför dina påbörjade kurser', helper: sample, priority: 5 });
     }
     if (upcomingEventsCount > 0) {
-      fallbackRecs.push({
-        key: 'fb-deadlines',
-        text: 'Fortsätt med kommande deadlines',
-        helper: 'Inga akuta spärrar hittades just nu. Se "Fokusera härnäst" för nästa steg.',
-      });
+      recs.push({ key: 'fb-deadlines', text: 'Fokusera på kommande deadlines', helper: 'Se "Fokusera härnäst" för nästa steg.', priority: 6 });
     } else if (unfinishedSubtasksCount > 0) {
-      fallbackRecs.push({
-        key: 'fb-subtasks',
-        text: 'Slutför påbörjade kursmoment',
-        helper: `Du har ${unfinishedSubtasksCount} oavklarade kursmoment att jobba vidare med.`,
-      });
+      recs.push({ key: 'fb-sub', text: 'Slutför påbörjade kursmoment', helper: `${unfinishedSubtasksCount} oavklarade kursmoment att jobba med.`, priority: 6 });
     }
-    if (fallbackRecs.length === 0) {
-      fallbackRecs.push({
-        key: 'fb-allgood',
-        text: 'Inga akuta spärrar hittades just nu',
-        helper: 'Fortsätt följa dina kommande deadlines och aktiva kurser.',
-      });
+    if (recs.length === 0) {
+      recs.push({ key: 'fb-allgood', text: 'Inga akuta spärrar just nu', helper: 'Fortsätt följa dina kommande deadlines.', priority: 9 });
     }
   }
 
-  const recs: Rec[] = blockingRecs.length > 0 ? blockingRecs : fallbackRecs;
+  const noRisks = overdueCourses.length === 0 && blockedAnalyses.length === 0 && missingList.length === 0;
+  const usingFallback = recGroups.size === 0;
 
-  const sortedBlocked = [...blockedCourses].sort(
-    (a, b) => a.course.year - b.course.year || b.hardUnmet.length - a.hardUnmet.length,
-  );
-
-  const blockedList = sortedBlocked.map(a => {
-    const blocked = fmtCourse(a.course.course_code, nameOf(a.course.course_code));
-    const items = a.hardUnmet.slice(0, 3).map(p => fmtCourse(p, nameOf(p))).join(', ');
-    const more = a.hardUnmet.length > 3 ? ` +${a.hardUnmet.length - 3}` : '';
-    return {
-      key: `b-${a.course.course_code}`,
-      text: `${blocked} (år ${a.course.year}) – kräver avklarad kurs: ${items}${more}`,
-    };
-  });
-
-  const upcomingList = upcomingMissing
-    .filter(a => !blockedCourses.some(b => b.course.course_code === a.course.course_code))
+  // List items for the expanded section
+  const blockedList = blockedAnalyses
     .sort((a, b) => a.course.year - b.course.year)
-    .map(a => {
-      const courseLabel = fmtCourse(a.course.course_code, nameOf(a.course.course_code));
-      const hard = a.hardUnmet.map(p => fmtCourse(p, nameOf(p)));
-      const soft = a.softUnmet.map(p => fmtCourse(p, nameOf(p)));
-      const parts: string[] = [];
-      if (hard.length) parts.push(`avklarad kurs: ${hard.slice(0, 3).join(', ')}${hard.length > 3 ? ` +${hard.length - 3}` : ''}`);
-      if (soft.length) parts.push(`genomgången/påbörjad kurs: ${soft.slice(0, 3).join(', ')}${soft.length > 3 ? ` +${soft.length - 3}` : ''}`);
-      return {
-        key: `u-${a.course.course_code}`,
-        text: `${courseLabel} – år ${a.course.year} – kräver ${parts.join(' · ')}`,
-      };
-    });
-
-  const blockedCodes = new Set(blockedCourses.map(a => a.course.course_code));
-  const upcomingCodes = new Set(upcomingMissing.map(a => a.course.course_code));
-  const overdueList = overdueCourses
-    .filter(c => !blockedCodes.has(c.course_code) && !upcomingCodes.has(c.course_code))
-    .map(c => ({
-      key: `o-${c.course_code}`,
-      text: `${fmtCourse(c.course_code, c.course_name)} – inte avklarad från år ${c.year}`,
+    .map(a => ({
+      key: `b-${a.course.course_code}`,
+      text: `${fmt(a.course.course_code, nameOf(a.course.course_code))} (år ${a.course.year}) – ${a.hardUnmet.slice(0, 2).map(r => shortMessage(r)).join(', ')}${a.hardUnmet.length > 2 ? ` +${a.hardUnmet.length - 2}` : ''}`,
     }));
+  const missingDisplay = missingList.slice(0, 12).map(m => ({
+    key: `m-${m.key}`,
+    text: `${m.result.message} – behövs för ${[...m.affects].slice(0, 2).map(c => fmt(c, nameOf(c))).join(', ')}${m.affects.size > 2 ? ` +${m.affects.size - 2}` : ''}`,
+  }));
+  const overdueDisplay = overdueCourses.map(c => ({
+    key: `o-${c.course_code}`,
+    text: `${fmt(c.course_code, c.course_name)} – inte avklarad från år ${c.year}`,
+  }));
+  const manualDisplay = manualAnalyses.slice(0, 12).map(a => ({
+    key: `mn-${a.course.course_code}`,
+    text: `${fmt(a.course.course_code, nameOf(a.course.course_code))} – ${a.manualUnmet[0]?.message ?? 'Manuellt krav'}`,
+  }));
 
-  const noRisks =
-    overdueCourses.length === 0 &&
-    upcomingMissing.length === 0 &&
-    blockedCourses.length === 0;
-
-  const totalDetails = blockedList.length + upcomingList.length + overdueList.length;
-  const showingFallback = blockingRecs.length === 0;
+  const totalDetails = blockedList.length + missingDisplay.length + overdueDisplay.length + manualDisplay.length;
 
   return (
     <Card>
       <CardHeader className="pb-3">
-        
         <CardTitle className="flex items-center gap-2 font-heading">
           <ShieldAlert className="h-5 w-5 text-warning" />
           Riskbild & rekommendationer
           <Popover>
             <PopoverTrigger asChild>
-              <button
-                type="button"
-                aria-label="Så beräknas riskbilden"
-                className="inline-flex items-center justify-center h-6 w-6 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
+              <button type="button" aria-label="Så beräknas riskbilden" className="inline-flex items-center justify-center h-6 w-6 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted">
                 <Info className="h-4 w-4" />
               </button>
             </PopoverTrigger>
             <PopoverContent side="bottom" align="start" className="w-72 text-sm">
-              Riskbilden baseras på ditt program, startår, kursstatus och förkunskapskrav.
-              Kurser som är påbörjade räknas inte som spärrade, även om någon förkunskap inte är helt klar.
+              Riskbilden baseras på ditt program, startår, kursstatus och förkunskapskrav från kurskatalogen.
+              Påbörjade kurser räknas inte som spärrade. Krav märkta "manuell kontroll" stoppar inte automatiskt.
             </PopoverContent>
           </Popover>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-3 gap-2 sm:gap-3">
-          <MetricCard
-            icon={<BookOpen className="h-4 w-4 text-muted-foreground" />}
-            label="Ej avklarade kurser"
-            value={overdueCourses.length}
-            onClick={() => setMetric('overdue')}
-          />
-          <MetricCard
-            icon={<AlertTriangle className="h-4 w-4 text-warning" />}
-            label="Saknade förkunskaper"
-            value={upcomingMissing.length}
-            emphasize={upcomingMissing.length > 0}
-            onClick={() => setMetric('missing')}
-          />
-          <MetricCard
-            icon={<Lock className="h-4 w-4 text-destructive" />}
-            label="Spärrade kurser"
-            value={blockedCourses.length}
-            emphasize={blockedCourses.length > 0}
-            onClick={() => setMetric('blocked')}
-          />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+          <MetricCard icon={<BookOpen className="h-4 w-4 text-muted-foreground" />} label="Ej avklarade kurser" value={overdueCourses.length} onClick={() => setMetric('overdue')} />
+          <MetricCard icon={<AlertTriangle className="h-4 w-4 text-warning" />} label="Saknade förkunskaper" value={missingList.length} emphasize={missingList.length > 0} onClick={() => setMetric('missing')} />
+          <MetricCard icon={<Lock className="h-4 w-4 text-destructive" />} label="Spärrade kurser" value={blockedAnalyses.length} emphasize={blockedAnalyses.length > 0} onClick={() => setMetric('blocked')} />
+          <MetricCard icon={<HelpCircle className="h-4 w-4 text-muted-foreground" />} label="Manuell kontroll" value={manualAnalyses.length} onClick={() => setMetric('manual')} />
         </div>
 
-        {noRisks ? (
+        {noRisks && manualAnalyses.length === 0 ? (
           <p className="text-sm text-muted-foreground">Inga risker upptäckta just nu. Bra jobbat!</p>
         ) : (
           <>
             {recs.length > 0 && (
               <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                  Rekommenderat just nu
-                </p>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Rekommenderat just nu</p>
                 <ul className="space-y-2">
                   {recs.map(t => (
                     <li key={t.key} className="flex items-start gap-2">
-                      {showingFallback ? (
-                        <Sparkles className="mt-0.5 h-3.5 w-3.5 text-primary shrink-0" />
-                      ) : (
-                        <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-warning shrink-0" />
-                      )}
+                      {usingFallback
+                        ? <Sparkles className="mt-0.5 h-3.5 w-3.5 text-primary shrink-0" />
+                        : <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-warning shrink-0" />}
                       <div className="min-w-0">
                         <p className="text-sm text-foreground font-medium leading-snug">{t.text}</p>
                         <p className="text-xs text-muted-foreground">{t.helper}</p>
@@ -340,31 +306,13 @@ export default function RiskOverview({
               <>
                 {expanded && (
                   <div className="space-y-3 pt-1">
-                    {blockedList.length > 0 && (
-                      <Group title="Spärrade kurser" items={blockedList} dotClass="bg-destructive" />
-                    )}
-                    {upcomingList.length > 0 && (
-                      <Group
-                        title="Kommande kurser med saknade förkunskaper"
-                        items={upcomingList}
-                        dotClass="bg-warning"
-                      />
-                    )}
-                    {overdueList.length > 0 && (
-                      <Group
-                        title="Ej avklarade kurser från tidigare/nuvarande år"
-                        items={overdueList}
-                        dotClass="bg-muted-foreground"
-                      />
-                    )}
+                    {blockedList.length > 0 && <Group title="Spärrade kurser" items={blockedList} dotClass="bg-destructive" />}
+                    {missingDisplay.length > 0 && <Group title="Saknade förkunskaper" items={missingDisplay} dotClass="bg-warning" />}
+                    {overdueDisplay.length > 0 && <Group title="Ej avklarade kurser" items={overdueDisplay} dotClass="bg-muted-foreground" />}
+                    {manualDisplay.length > 0 && <Group title="Manuell kontroll" items={manualDisplay} dotClass="bg-muted-foreground" />}
                   </div>
                 )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-auto px-2 py-1 text-xs"
-                  onClick={() => setExpanded(e => !e)}
-                >
+                <Button variant="ghost" size="sm" className="h-auto px-2 py-1 text-xs" onClick={() => setExpanded(e => !e)}>
                   {expanded ? 'Visa färre' : 'Visa mer'}
                 </Button>
               </>
@@ -376,118 +324,79 @@ export default function RiskOverview({
       <Dialog open={metric !== null} onOpenChange={(o) => { if (!o) setMetric(null); }}>
         <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-heading flex items-center gap-2">
-              <span>
-                {metric === 'overdue' && 'Ej avklarade kurser'}
-                {metric === 'missing' && 'Saknade förkunskaper'}
-                {metric === 'blocked' && 'Spärrade kurser'}
-              </span>
-              {(metric === 'missing' || metric === 'blocked') && (
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <button
-                      type="button"
-                      aria-label="Om förkunskapskrav"
-                      className="inline-flex items-center justify-center h-6 w-6 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <Info className="h-4 w-4" />
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent side="bottom" align="start" className="w-72 text-sm">
-                    Förkunskapskrav kan betyda olika saker: en kurs kan behöva vara avklarad,
-                    påbörjad/genomgången, eller kräva ett visst antal HP inom en kurs eller ett huvudområde.
-                  </PopoverContent>
-                </Popover>
-              )}
+            <DialogTitle className="font-heading">
+              {metric === 'overdue' && 'Ej avklarade kurser'}
+              {metric === 'missing' && 'Saknade förkunskaper'}
+              {metric === 'blocked' && 'Spärrade kurser'}
+              {metric === 'manual' && 'Manuell kontroll'}
             </DialogTitle>
           </DialogHeader>
 
-          {metric === 'overdue' && (
-            overdueCourses.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Inga ej avklarade kurser från tidigare eller nuvarande år.</p>
-            ) : (
-              <ul className="space-y-2">
-                {overdueCourses.map(c => (
-                  <li key={c.course_code} className="rounded-md border p-3">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-mono text-sm font-semibold text-foreground">{c.course_code}</span>
-                      <Badge variant="outline" className="text-xs">År {c.year}</Badge>
-                      <Badge variant="secondary" className="text-xs">{COURSE_STATUS_LABEL[c.status] || c.status}</Badge>
-                    </div>
-                    {c.course_name && <p className="text-sm text-muted-foreground mt-1">{c.course_name}</p>}
-                  </li>
-                ))}
-              </ul>
-            )
+          {metric === 'overdue' && (overdueCourses.length === 0
+            ? <p className="text-sm text-muted-foreground">Inga ej avklarade kurser.</p>
+            : <ul className="space-y-2">{overdueCourses.map(c => (
+                <li key={c.course_code} className="rounded-md border p-3">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-sm font-semibold">{c.course_code}</span>
+                    <Badge variant="outline" className="text-xs">År {c.year}</Badge>
+                    <Badge variant="secondary" className="text-xs">{COURSE_STATUS_LABEL[c.status] || c.status}</Badge>
+                  </div>
+                  {c.course_name && <p className="text-sm text-muted-foreground mt-1">{c.course_name}</p>}
+                </li>
+              ))}</ul>
           )}
 
-          {metric === 'missing' && (
-            upcomingMissing.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Inga saknade förkunskaper hittades just nu.</p>
-            ) : (
-              <ul className="space-y-2">
-                {upcomingMissing.map(a => {
-                  const missing = [...a.hardUnmet, ...a.softUnmet];
-                  return (
-                    <li key={a.course.course_code} className="rounded-md border p-3">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-mono text-sm font-semibold text-foreground">{a.course.course_code}</span>
-                        <Badge variant="outline" className="text-xs">År {a.course.year}</Badge>
-                      </div>
-                      {nameOf(a.course.course_code) && (
-                        <p className="text-sm text-muted-foreground mt-1">{nameOf(a.course.course_code)}</p>
-                      )}
-                      <p className="text-xs text-muted-foreground mt-2 mb-1">Saknade förkunskaper:</p>
-                      <ul className="space-y-1">
-                        {missing.map(p => {
-                          const k = prereqKind(p);
-                          const statusLabel = k === 'soft' ? 'Påbörjad' : 'Ej påbörjad';
-                          return (
-                            <li key={p} className="flex items-center gap-2 text-sm">
-                              <span className="font-mono font-semibold">{p}</span>
-                              {nameOf(p) && <span className="text-muted-foreground truncate">{nameOf(p)}</span>}
-                              <Badge variant={k === 'soft' ? 'secondary' : 'outline'} className="text-xs ml-auto">{statusLabel}</Badge>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </li>
-                  );
-                })}
-              </ul>
-            )
+          {metric === 'missing' && (missingList.length === 0
+            ? <p className="text-sm text-muted-foreground">Inga saknade förkunskaper.</p>
+            : <ul className="space-y-2">{missingList.map(m => (
+                <li key={m.key} className="rounded-md border p-3">
+                  <p className="text-sm font-medium">{m.result.message}</p>
+                  {m.result.progress && !m.result.fulfilled && (
+                    <p className="text-xs text-muted-foreground mt-1">Framsteg: {m.result.progress.current}/{m.result.progress.required} HP</p>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Behövs för: {[...m.affects].slice(0, 5).map(c => fmt(c, nameOf(c))).join(', ')}
+                    {m.affects.size > 5 && ` +${m.affects.size - 5}`}
+                  </p>
+                </li>
+              ))}</ul>
           )}
 
-          {metric === 'blocked' && (
-            blockedCourses.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Inga spärrade kurser hittades just nu.</p>
-            ) : (
-              <ul className="space-y-2">
-                {blockedCourses.map(a => (
-                  <li key={a.course.course_code} className="rounded-md border p-3">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-mono text-sm font-semibold text-foreground">{a.course.course_code}</span>
-                      <Badge variant="outline" className="text-xs">År {a.course.year}</Badge>
-                      <Badge variant="destructive" className="text-xs">Spärrad</Badge>
-                    </div>
-                    {nameOf(a.course.course_code) && (
-                      <p className="text-sm text-muted-foreground mt-1">{nameOf(a.course.course_code)}</p>
-                    )}
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Kräver att följande förkunskap(er) startas eller avklaras:
-                    </p>
-                    <ul className="mt-1 space-y-1">
-                      {a.hardUnmet.map(p => (
-                        <li key={p} className="flex items-center gap-2 text-sm">
-                          <span className="font-mono font-semibold">{p}</span>
-                          {nameOf(p) && <span className="text-muted-foreground truncate">{nameOf(p)}</span>}
-                        </li>
-                      ))}
-                    </ul>
-                  </li>
-                ))}
-              </ul>
-            )
+          {metric === 'blocked' && (blockedAnalyses.length === 0
+            ? <p className="text-sm text-muted-foreground">Inga spärrade kurser.</p>
+            : <ul className="space-y-2">{blockedAnalyses.map(a => (
+                <li key={a.course.course_code} className="rounded-md border p-3">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-sm font-semibold">{a.course.course_code}</span>
+                    <Badge variant="outline" className="text-xs">År {a.course.year}</Badge>
+                    <Badge variant="destructive" className="text-xs">Spärrad</Badge>
+                  </div>
+                  {nameOf(a.course.course_code) && <p className="text-sm text-muted-foreground mt-1">{nameOf(a.course.course_code)}</p>}
+                  <ul className="mt-2 space-y-1">
+                    {a.hardUnmet.map((r, i) => (
+                      <li key={i} className="text-sm">• {r.message}</li>
+                    ))}
+                  </ul>
+                </li>
+              ))}</ul>
+          )}
+
+          {metric === 'manual' && (manualAnalyses.length === 0
+            ? <p className="text-sm text-muted-foreground">Inga krav som kräver manuell kontroll.</p>
+            : <ul className="space-y-2">{manualAnalyses.map(a => (
+                <li key={a.course.course_code} className="rounded-md border p-3">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-sm font-semibold">{a.course.course_code}</span>
+                    <Badge variant="outline" className="text-xs">År {a.course.year}</Badge>
+                  </div>
+                  {nameOf(a.course.course_code) && <p className="text-sm text-muted-foreground mt-1">{nameOf(a.course.course_code)}</p>}
+                  <ul className="mt-2 space-y-1">
+                    {a.manualUnmet.map((r, i) => (
+                      <li key={i} className="text-sm text-muted-foreground">• {r.message}</li>
+                    ))}
+                  </ul>
+                </li>
+              ))}</ul>
           )}
         </DialogContent>
       </Dialog>
@@ -495,17 +404,67 @@ export default function RiskOverview({
   );
 }
 
-function MetricCard({
-  icon, label, value, emphasize, onClick,
-}: { icon: React.ReactNode; label: string; value: number; emphasize?: boolean; onClick?: () => void }) {
+function ruleKey(r: CourseRequirement): string {
+  switch (r.type) {
+    case 'completed_course':
+    case 'attended_course':
+      return `${r.type}:${r.courseCode}`;
+    case 'completed_hp_in_course':
+      return `${r.type}:${r.courseCode}:${r.hp}`;
+    case 'completed_hp_in_subject':
+      return `${r.type}:${r.subject}:${r.hp}`;
+    case 'completed_total_hp':
+      return `${r.type}:${r.hp}`;
+    case 'completed_hp_in_program_group':
+      return `${r.type}:${(r.allowedProgramGroups || []).join(',')}:${r.hp}`;
+    case 'completed_hp_in_course_group':
+      return `${r.type}:${r.groupName || ''}:${r.hp}`;
+    case 'completed_hp_at_level':
+      return `${r.type}:${r.level}:${r.hp}`;
+    case 'custom_text':
+      return `${r.type}:${r.text.slice(0, 40)}`;
+  }
+}
+
+function focusText(req: CourseRequirement, result: RequirementResult, nameOf: (c: string) => string | undefined): string {
+  switch (req.type) {
+    case 'completed_course':
+      return `Fokusera på ${fmt(req.courseCode, nameOf(req.courseCode))}`;
+    case 'attended_course':
+      return `Påbörja ${fmt(req.courseCode, nameOf(req.courseCode))}`;
+    case 'completed_hp_in_course': {
+      const have = result.progress?.current ?? 0;
+      const need = req.hp - have;
+      return `Fokusera på moment i ${fmt(req.courseCode, nameOf(req.courseCode))} – du behöver ${need > 0 ? need : req.hp} HP till`;
+    }
+    case 'completed_hp_in_subject': {
+      const have = result.progress?.current ?? 0;
+      const need = Math.max(0, req.hp - have);
+      return `Samla ${need || req.hp} HP till inom ${req.subject}`;
+    }
+    case 'completed_total_hp': {
+      const have = result.progress?.current ?? 0;
+      const need = Math.max(0, req.hp - have);
+      return `Du behöver ${need} HP till totalt (mål ${req.hp})`;
+    }
+    default:
+      return result.message;
+  }
+}
+
+function shortMessage(r: RequirementResult): string {
+  if (r.progress && !r.fulfilled) return `${r.message} (${r.progress.current}/${r.progress.required} HP)`;
+  return r.message;
+}
+
+function MetricCard({ icon, label, value, emphasize, onClick }: { icon: React.ReactNode; label: string; value: number; emphasize?: boolean; onClick?: () => void }) {
   const className = `text-left w-full rounded-lg border p-2.5 sm:p-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
     emphasize ? 'border-warning/40 bg-warning/5 hover:bg-warning/10' : 'border-border bg-muted/30 hover:bg-muted/50'
   }`;
   return (
     <button type="button" onClick={onClick} className={className}>
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
-        {icon}
-        <span className="truncate">{label}</span>
+        {icon}<span className="truncate">{label}</span>
       </div>
       <p className="text-2xl font-heading font-bold text-foreground leading-none">{value}</p>
     </button>
