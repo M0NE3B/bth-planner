@@ -397,6 +397,7 @@ export type Database = {
         Row: {
           catalog_migrated_at: string | null
           created_at: string
+          dismissed_course_codes: string[]
           display_name: string | null
           id: string
           is_visible: boolean
@@ -408,6 +409,7 @@ export type Database = {
         Insert: {
           catalog_migrated_at?: string | null
           created_at?: string
+          dismissed_course_codes?: string[]
           display_name?: string | null
           id?: string
           is_visible?: boolean
@@ -419,6 +421,7 @@ export type Database = {
         Update: {
           catalog_migrated_at?: string | null
           created_at?: string
+          dismissed_course_codes?: string[]
           display_name?: string | null
           id?: string
           is_visible?: boolean

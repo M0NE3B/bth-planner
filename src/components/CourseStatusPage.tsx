@@ -660,6 +660,7 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
   const navigate = useNavigate();
   const [courses, setCourses] = useState<UserCourse[]>([]);
   const initialStatusesRef = useRef<Map<string, CourseStatus>>(new Map());
+  const dismissedCodesRef = useRef<Set<string>>(new Set());
   const [subtasks, setSubtasks] = useState<Subtask[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -853,11 +854,12 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
 
       // Seed missing mandatory catalog courses into user_courses (idempotent)
       const existingCodes = new Set(courses.map(c => c.course_code.toUpperCase()));
+      const dismissed = dismissedCodesRef.current;
       const seen = new Set<string>();
       const missingMandatory = allRows.filter(r => {
         if (!r.mandatory) return false;
         const code = r.course!.course_code.toUpperCase();
-        if (existingCodes.has(code) || seen.has(code)) return false;
+        if (existingCodes.has(code) || seen.has(code) || dismissed.has(code)) return false;
         seen.add(code);
         return true;
       });
@@ -918,17 +920,20 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
       const nc = data as UserCourse;
       setCourses(prev => [...prev, nc]);
       initialStatusesRef.current.set(nc.id, nc.status);
+      await removeFromDismissed(e.code);
       toast.success(`${e.name} tillagd som valbar kurs i år ${e.year}`);
     }
   };
 
 
   const fetchData = async () => {
-    const [coursesRes, subtasksRes] = await Promise.all([
+    const [coursesRes, subtasksRes, profileRes] = await Promise.all([
       supabase.from('user_courses').select('*').eq('user_id', userId)
         .order('year', { ascending: true }).order('course_name', { ascending: true }),
       supabase.from('course_subtasks').select('id, course_id, title, completed, due_date, hp, event_id, type').eq('user_id', userId)
         .order('created_at', { ascending: true }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any).from('profiles').select('dismissed_course_codes').eq('user_id', userId).maybeSingle(),
     ]);
 
     if (coursesRes.data) {
@@ -937,6 +942,8 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
       initialStatusesRef.current = new Map(data.map(c => [c.id, c.status]));
     }
     if (subtasksRes.data) setSubtasks(subtasksRes.data as Subtask[]);
+    const dismissed = (profileRes?.data as { dismissed_course_codes?: string[] } | null)?.dismissed_course_codes ?? [];
+    dismissedCodesRef.current = new Set(dismissed.map(c => c.toUpperCase()));
     setLoading(false);
   };
 
@@ -988,6 +995,7 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
   };
 
   const handleDelete = async (courseId: string, courseName: string) => {
+    const course = courses.find(c => c.id === courseId);
     const { error } = await supabase.from('user_courses').delete().eq('id', courseId);
     if (error) {
       toast.error('Kunde inte ta bort kursen');
@@ -996,7 +1004,31 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
     setCourses(prev => prev.filter(c => c.id !== courseId));
     initialStatusesRef.current.delete(courseId);
     setSubtasks(prev => prev.filter(s => s.course_id !== courseId));
+
+    // Remember this code as dismissed so auto-seed doesn't bring it back.
+    if (course) {
+      const codeUpper = course.course_code.toUpperCase();
+      if (!dismissedCodesRef.current.has(codeUpper)) {
+        dismissedCodesRef.current.add(codeUpper);
+        const next = Array.from(dismissedCodesRef.current);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase as any).from('profiles')
+          .update({ dismissed_course_codes: next })
+          .eq('user_id', userId);
+      }
+    }
     toast.success(`${courseName} borttagen`);
+  };
+
+  const removeFromDismissed = async (code: string) => {
+    const codeUpper = code.toUpperCase();
+    if (!dismissedCodesRef.current.has(codeUpper)) return;
+    dismissedCodesRef.current.delete(codeUpper);
+    const next = Array.from(dismissedCodesRef.current);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any).from('profiles')
+      .update({ dismissed_course_codes: next })
+      .eq('user_id', userId);
   };
 
   const handleAddCourse = async (course: { code: string; name: string; hp: number }) => {
@@ -1014,6 +1046,7 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
       const newCourse = data as UserCourse;
       setCourses(prev => [...prev, newCourse]);
       initialStatusesRef.current.set(newCourse.id, newCourse.status);
+      await removeFromDismissed(course.code);
       toast.success(`${course.name} tillagd i år ${year}`);
     }
   };
