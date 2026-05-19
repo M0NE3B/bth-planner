@@ -871,7 +871,7 @@ function MetricDetailDialog({
               <div className="flex items-center gap-2 flex-wrap mb-1">
                 <span className="font-semibold text-sm text-foreground">{e.title}</span>
                 <Badge variant="secondary" className="text-xs">{TYPE_LABEL[e.event_type] || e.event_type}</Badge>
-                {hp > 0 && <Badge variant="outline" className="text-xs">{hp} HP</Badge>}
+                {hp > 0 && <Badge variant="outline" className="text-xs">{formatHp(hp)} HP</Badge>}
                 <Badge variant={e.status === 'complete' ? 'default' : 'secondary'} className="text-xs">
                   {STATUS_LABEL[e.status] || e.status}
                 </Badge>
