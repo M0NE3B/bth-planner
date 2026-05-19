@@ -510,12 +510,7 @@ function CourseCard(props: CourseCardProps) {
                   {course.course_code}
                 </button>
               </CourseInfoPopover>
-              {subjectLabel && (
-                <>
-                  <span className="text-muted-foreground" aria-hidden="true">·</span>
-                  <span className="text-muted-foreground">{subjectLabel}</span>
-                </>
-              )}
+              <span className="text-foreground">{course.course_name}</span>
               <span className="text-muted-foreground" aria-hidden="true">·</span>
               <span className="text-muted-foreground">{course.hp} HP</span>
               {courseSubtasks.length > 0 && (
@@ -530,7 +525,6 @@ function CourseCard(props: CourseCardProps) {
                 </Tooltip>
               )}
             </div>
-            <p className="text-sm text-muted-foreground">{course.course_name}</p>
           </div>
 
           <div className="flex items-center gap-2">
