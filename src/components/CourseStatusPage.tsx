@@ -1282,12 +1282,17 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
           {sortedYearEntries.map(([year, yearCourses]) => {
             const yearNum = Number(year);
             const yearElectives = electivesByYear.get(yearNum) || [];
+            const yearStats = yearHpStats.find(s => s.year === yearNum);
+            const totalHpYear = yearStats?.total ?? 0;
+            const missingHp = Math.max(0, 60 - totalHpYear);
+            const showElectivePrompt = missingHp > 0 && yearElectives.length > 0;
+            const showMissingNoElectives = missingHp > 0 && yearElectives.length === 0 && yearCourses.length > 0;
             return (
               <div key={year}>
                 <YearSection
                   year={year}
                   yearCourses={yearCourses}
-                  stats={yearHpStats.find(s => s.year === yearNum)}
+                  stats={yearStats}
                   subtasks={subtasks}
                   expandedCourses={expandedCourses}
                   newSubtaskText={newSubtaskText}
@@ -1310,8 +1315,28 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
                   onDeleteSubtask={(s) => setPendingSubtaskDelete(s)}
                   onAddSubtask={handleAddSubtask}
                 />
+                {showElectivePrompt && (
+                  <div className="mb-3 -mt-2 rounded-md border border-warning/40 bg-warning/10 p-3 flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+                    <div className="text-sm text-foreground">
+                      <p className="font-medium">År {year} saknar {missingHp} HP</p>
+                      <p className="text-xs text-muted-foreground">
+                        Ett normalt läsår är 60 HP. Välj {missingHp} HP bland de valbara kurserna nedan för att fylla upp året.
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {showMissingNoElectives && (
+                  <div className="mb-3 -mt-2 rounded-md border border-border bg-muted/30 p-3 flex items-start gap-2">
+                    <Info className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                    <div className="text-sm text-muted-foreground">
+                      År {year} har {totalHpYear} HP — {missingHp} HP saknas för ett fullt läsår (60 HP).
+                      Lägg till en kurs manuellt om du planerar fler kurser detta år.
+                    </div>
+                  </div>
+                )}
                 {yearElectives.length > 0 && (
-                  <div className="mb-6 -mt-2 rounded-md border border-dashed border-border p-3 bg-muted/20">
+                  <div className="mb-6 -mt-1 rounded-md border border-dashed border-border p-3 bg-muted/20">
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
                       Valbara kurser år {year}
                     </p>
@@ -1335,6 +1360,7 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
               </div>
             );
           })}
+
 
         </TooltipProvider>
 
