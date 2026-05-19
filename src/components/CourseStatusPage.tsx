@@ -436,7 +436,7 @@ function SubtasksSection({
   course, courseSubtasks, isExpanded, onToggleExpanded,
   newText, newDate, newHp, newType,
   setNewText, setNewDate, setNewHp, setNewType,
-  onToggleSubtask, onDeleteSubtask, onAddSubtask,
+  onToggleSubtask, onDeleteSubtask, onAddSubtask, onSetSubtaskDate,
 }: {
   course: UserCourse;
   courseSubtasks: Subtask[];
@@ -453,6 +453,7 @@ function SubtasksSection({
   onToggleSubtask: (s: Subtask) => void;
   onDeleteSubtask: (s: Subtask) => void;
   onAddSubtask: (courseId: string) => void;
+  onSetSubtaskDate: (s: Subtask, date: string) => void;
 }) {
   return (
     <Collapsible open={isExpanded} onOpenChange={() => onToggleExpanded(course.id)}>
@@ -464,7 +465,7 @@ function SubtasksSection({
       </CollapsibleTrigger>
       <CollapsibleContent className="mt-2 space-y-1.5">
         {courseSubtasks.map(sub => (
-          <SubtaskRow key={sub.id} sub={sub} onToggle={onToggleSubtask} onDelete={onDeleteSubtask} />
+          <SubtaskRow key={sub.id} sub={sub} onToggle={onToggleSubtask} onDelete={onDeleteSubtask} onSetDate={onSetSubtaskDate} />
         ))}
         <NewSubtaskForm
           courseId={course.id}
