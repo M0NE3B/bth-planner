@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { DateInput } from '@/components/ui/date-input';
 import { TimeInput } from '@/components/ui/time-input';
 import { EVENT_TYPE_OPTIONS, parseHpInput } from '@/lib/events';
+import CourseCodeCombobox from '@/components/CourseCodeCombobox';
 
 interface AddEventPageProps {
   userId: string;
