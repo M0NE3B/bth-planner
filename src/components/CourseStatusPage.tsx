@@ -925,11 +925,13 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
 
 
   const fetchData = async () => {
-    const [coursesRes, subtasksRes] = await Promise.all([
+    const [coursesRes, subtasksRes, profileRes] = await Promise.all([
       supabase.from('user_courses').select('*').eq('user_id', userId)
         .order('year', { ascending: true }).order('course_name', { ascending: true }),
       supabase.from('course_subtasks').select('id, course_id, title, completed, due_date, hp, event_id, type').eq('user_id', userId)
         .order('created_at', { ascending: true }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any).from('profiles').select('dismissed_course_codes').eq('user_id', userId).maybeSingle(),
     ]);
 
     if (coursesRes.data) {
@@ -938,6 +940,8 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
       initialStatusesRef.current = new Map(data.map(c => [c.id, c.status]));
     }
     if (subtasksRes.data) setSubtasks(subtasksRes.data as Subtask[]);
+    const dismissed = (profileRes?.data as { dismissed_course_codes?: string[] } | null)?.dismissed_course_codes ?? [];
+    dismissedCodesRef.current = new Set(dismissed.map(c => c.toUpperCase()));
     setLoading(false);
   };
 
