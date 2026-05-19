@@ -109,12 +109,10 @@ export default function EventFormFields({
         <Label htmlFor={`${idPrefix}-hp`}>Omfattning / HP</Label>
         <Input
           id={`${idPrefix}-hp`}
-          type="number"
-          step="0.5"
-          min="0"
+          type="text"
           inputMode="decimal"
           value={fHp}
-          onChange={e => setFHp(e.target.value)}
+          onChange={e => setFHp(e.target.value.replace(',', '.'))}
           placeholder="t.ex. 1.5"
         />
         <p className="text-xs text-muted-foreground mt-1">{hpHelp}</p>
