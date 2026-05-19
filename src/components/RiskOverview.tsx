@@ -178,10 +178,10 @@ export default function RiskOverview({
   type Rec = { key: string; text: string; helper: string; priority: number };
   const recs: Rec[] = [];
 
-  // Priority 1: blocked CURRENT-year courses
-  const currentBlocked = blockedAnalyses.filter(a => a.course.year <= currentStudyYear);
-  // Priority 2: blocked upcoming (next-year) courses
-  const upcomingBlocked = blockedAnalyses.filter(a => a.course.year === currentStudyYear + 1);
+  // Priority 1: redan spärrade kurser (år ≤ aktuellt år, ej påbörjade)
+  const currentBlocked = blockedAnalyses;
+  // Priority 2: framtida kurser som riskerar att spärras nästa år
+  const upcomingBlocked = atRiskAnalyses.filter(a => a.course.year === currentStudyYear + 1);
 
   // Group recommendations by the requirement that unlocks things
   type RecGroup = { req: CourseRequirement; result: RequirementResult; affects: { code: string; year: number }[]; minYear: number };
