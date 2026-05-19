@@ -234,7 +234,7 @@ function parseFragment(fragment: string, idx: CourseIndex): ParseFragmentOut {
   // ----- 7. Minst X HP i <course name>  (completed_hp_in_course / group) -----
   const hpIn = lower.match(/minst\s+([\d,.]+)\s*hp\s+(?:i|av)\s+([^,.;]+)/);
   if (hpIn) {
-    const hp = parseFloat(hpIn[1].replace(',', '.'));
+    const hp = Number.parseFloat(hpIn[1].replace(',', '.'));
     const phrase = hpIn[2].trim();
     const c = resolveCourseByName(phrase, idx);
     if (c) {
