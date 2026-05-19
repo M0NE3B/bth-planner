@@ -137,11 +137,11 @@ export function prereqsToRequirements(
       case 'attended_course':
         return { type: 'attended_course', courseCode: code ?? '', ...g };
       case 'completed_hp_in_course':
-        return { type: 'completed_hp_in_course', courseCode: code ?? '', hp: r.required_hp ?? 0, ...g };
+        return { type: 'completed_hp_in_course', courseCode: code ?? '', hp: r.required_hp ?? 0, originalText: r.original_text ?? undefined, ...g };
       case 'completed_hp_in_subject':
-        return { type: 'completed_hp_in_subject', subject: r.required_subject_area ?? '', hp: r.required_hp ?? 0, ...g };
+        return { type: 'completed_hp_in_subject', subject: r.required_subject_area ?? '', hp: r.required_hp ?? 0, originalText: r.original_text ?? undefined, ...g };
       case 'completed_total_hp':
-        return { type: 'completed_total_hp', hp: r.required_hp ?? 0, ...g };
+        return { type: 'completed_total_hp', hp: r.required_hp ?? 0, originalText: r.original_text ?? undefined, ...g };
       case 'completed_hp_in_program_group':
         return {
           type: 'completed_hp_in_program_group',
