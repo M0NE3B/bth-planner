@@ -147,7 +147,7 @@ function parseFragment(fragment: string, idx: CourseIndex): ParseFragmentOut {
       .filter((g) => PROGRAM_GROUP_WORDS.some((w) => g.includes(w) || w.includes(g)) || g.length > 3);
     rules.push({
       requirement_type: 'completed_hp_in_program_group',
-      required_hp: parseInt(prog[1], 10),
+      required_hp: Number.parseInt(prog[1], 10),
       allowed_program_groups: groups.length > 0 ? groups : null,
       manual_review: true,
       original_text: original,
