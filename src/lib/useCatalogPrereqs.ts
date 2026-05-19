@@ -91,17 +91,34 @@ export function useCatalogPrereqs(): CatalogPrereqIndex {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [coursesRes, prereqsRes] = await Promise.all([
-        supabase.from('courses_catalog' as never).select('*'),
-        supabase.from('course_prerequisites' as never).select('*'),
+      // Paginate prerequisites — the table can exceed Supabase's default
+      // 1000-row limit, which previously silently dropped many courses'
+      // prereqs (e.g. FY1423) from the student view.
+      const fetchAll = async <T,>(table: string): Promise<T[]> => {
+        const pageSize = 1000;
+        const out: T[] = [];
+        for (let from = 0; ; from += pageSize) {
+          const { data, error } = await supabase
+            .from(table as never)
+            .select('*')
+            .range(from, from + pageSize - 1);
+          if (error) throw error;
+          const rows = (data ?? []) as unknown as T[];
+          out.push(...rows);
+          if (rows.length < pageSize) break;
+        }
+        return out;
+      };
+      const [courses, prereqs] = await Promise.all([
+        fetchAll<CatalogCourse>('courses_catalog'),
+        fetchAll<CatalogPrerequisite>('course_prerequisites'),
       ]);
       if (cancelled) return;
-      const courses = (coursesRes.data ?? []) as unknown as CatalogCourse[];
-      const prereqs = (prereqsRes.data ?? []) as unknown as CatalogPrerequisite[];
       setState(buildIndex(courses, prereqs));
     })();
     return () => { cancelled = true; };
   }, []);
+
 
   return state;
 }
