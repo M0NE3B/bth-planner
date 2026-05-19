@@ -331,19 +331,23 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
   const hoursUntil = (event: StudyEvent) =>
     differenceInHours(new Date(`${event.due_date}T${event.due_time || '23:59'}`), now);
 
-  // Build short label for blocking, e.g. "Spärrar MA1423" or "Spärrar MA1423 som kommer snart"
+  // Build short label for blocking, e.g. "Hjälper dig uppfylla förkunskap till X"
+  const codeName = (code: string) => catalog.codeToName.get(code) || courses.find(c => c.course_code === code)?.course_name || undefined;
+  const fmtC = (code: string) => {
+    const n = codeName(code);
+    return n ? `${n} (${code})` : code;
+  };
   const getBlockingLabel = (courseCode: string | null): string | null => {
     if (!courseCode) return null;
     const blocked = blockingMap.get(courseCode);
     if (!blocked || blocked.length === 0) return null;
     const first = blocked[0];
-    // "soon" if blocked course belongs to next year/term relative to user's current courses
     const userCourse = courses.find(c => c.course_code === courseCode);
     const soon = userCourse ? first.year >= userCourse.year : false;
     const more = blocked.length > 1 ? ` (+${blocked.length - 1} till)` : '';
     return soon
-      ? `Spärrar ${first.code} som kommer snart${more}`
-      : `Spärrar ${first.code}${more}`;
+      ? `Hjälper dig uppfylla förkunskap till ${fmtC(first.code)}${more}`
+      : `Låser upp ${fmtC(first.code)}${more}`;
   };
 
   // Short, single-line reason for the card — matches ranking
