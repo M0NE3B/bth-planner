@@ -12,6 +12,7 @@ import {
   parsePrerequisiteText, proposalKey,
   type ParseRuleProposal, type ParserCourse,
 } from '@/lib/admin/prereqParser';
+import type { RequirementType } from '@/lib/catalog';
 
 interface CourseRow extends ParserCourse {
   original_prerequisite_text: string | null;
@@ -108,7 +109,7 @@ export default function PrereqNormalizeCard() {
         });
       }
       setPlans(out);
-      toast.success(`Skannade ${withText.length} kurser \u2014 ${out.length} har f\u00f6rslag`);
+      toast.success(`Skannade ${withText.length} kurser — ${out.length} har förslag`);
     } finally {
       setScanning(false);
     }
@@ -143,15 +144,14 @@ export default function PrereqNormalizeCard() {
   const applySelected = async () => {
     setWriting(true);
     try {
-      type InsertRow = {
-        target_course_id: string; requirement_type: string;
+      const rows: Array<{
+        target_course_id: string; requirement_type: RequirementType;
         required_course_id: string | null; required_hp: number | null;
         required_subject_area: string | null; original_text: string | null;
         required_level: string | null; course_group_name: string | null;
         allowed_program_groups: string[] | null; allowed_course_codes: string[] | null;
         manual_review: boolean;
-      };
-      const rows: InsertRow[] = [];
+      }> = [];
       for (const plan of plans) {
         for (const p of plan.proposals) {
           if (!p._selected) continue;
@@ -173,17 +173,16 @@ export default function PrereqNormalizeCard() {
         }
       }
       if (rows.length === 0) { toast.info('Inget valt'); return; }
-      // Batch in chunks of 200 to avoid request size issues.
       for (let i = 0; i < rows.length; i += 200) {
         const chunk = rows.slice(i, i + 200);
         const { error } = await supabase.from('course_prerequisites').insert(chunk);
         if (error) throw error;
       }
-      toast.success(`Skrev ${rows.length} f\u00f6rkunskapsregler`);
+      toast.success(`Skrev ${rows.length} förkunskapsregler`);
       setPlans([]);
       await load();
     } catch (e) {
-      toast.error(`Kunde inte skriva: ${e instanceof Error ? e.message : 'ok\u00e4nt fel'}`);
+      toast.error(`Kunde inte skriva: ${e instanceof Error ? e.message : 'okänt fel'}`);
     } finally {
       setWriting(false);
     }
@@ -194,15 +193,15 @@ export default function PrereqNormalizeCard() {
       <CardHeader>
         <CardTitle className="text-base flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-primary" />
-          Normalisera f\u00f6rkunskaper
+          Normalisera förkunskaper
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-muted-foreground">
           Skannar alla aktiva kurser med <code className="text-xs">original_prerequisite_text</code> och
-          f\u00f6resl\u00e5r strukturerade regler. Befintliga regler r\u00f6rs inte \u2014 redan existerande
-          f\u00f6rslag markeras som "Finns redan" och avmarkeras automatiskt. Du v\u00e4ljer per rad vad
-          som skrivs. Idempotent: kan k\u00f6ras flera g\u00e5nger.
+          föreslår strukturerade regler. Befintliga regler rörs inte — förslag som redan finns
+          markeras "Finns redan" och avmarkeras automatiskt. Du väljer per rad vad som skrivs.
+          Idempotent: kan köras flera gånger.
         </p>
         <div className="flex flex-wrap gap-2">
           <Button onClick={runScan} disabled={loading || scanning} className="gap-1">
@@ -212,7 +211,6 @@ export default function PrereqNormalizeCard() {
           <Button
             onClick={() => void applySelected()}
             disabled={writing || selectedCount === 0}
-            variant="default"
             className="gap-1"
           >
             {writing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -220,7 +218,7 @@ export default function PrereqNormalizeCard() {
           </Button>
           {plans.length > 0 && (
             <Input
-              placeholder="Filtrera p\u00e5 kod eller namn\u2026"
+              placeholder="Filtrera på kod eller namn…"
               className="w-60"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -248,7 +246,7 @@ export default function PrereqNormalizeCard() {
                       </div>
                       <div className="flex gap-1">
                         <Button size="sm" variant="ghost" className="text-xs h-7"
-                          onClick={() => toggleAllForCourse(plan.course.id, true)}>V\u00e4lj alla</Button>
+                          onClick={() => toggleAllForCourse(plan.course.id, true)}>Välj alla</Button>
                         <Button size="sm" variant="ghost" className="text-xs h-7"
                           onClick={() => toggleAllForCourse(plan.course.id, false)}>Avmarkera alla</Button>
                       </div>
@@ -286,7 +284,7 @@ export default function PrereqNormalizeCard() {
                             </div>
                             <p className="mt-0.5">{pr.reason}</p>
                             <p className="text-muted-foreground italic break-words">
-                              \u201c{pr.source_fragment}\u201d
+                              ”{pr.source_fragment}”
                             </p>
                           </div>
                         </li>
@@ -301,7 +299,7 @@ export default function PrereqNormalizeCard() {
 
         {plans.length === 0 && !scanning && (
           <p className="text-xs text-muted-foreground">
-            Klicka <strong>Skanna kurser</strong> f\u00f6r att se f\u00f6rslag. Inget skrivs f\u00f6rr\u00e4n du bekr\u00e4ftar.
+            Klicka <strong>Skanna kurser</strong> för att se förslag. Inget skrivs förrän du bekräftar.
           </p>
         )}
       </CardContent>
