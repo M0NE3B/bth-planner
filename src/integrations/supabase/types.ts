@@ -667,8 +667,10 @@ export type Database = {
       }
     }
     Functions: {
+      _canonical_program_name: { Args: { _legacy: string }; Returns: string }
       admin_backfill_user_courses_catalog: { Args: never; Returns: Json }
       admin_catalog_migration_report: { Args: never; Returns: Json }
+      admin_sync_existing_users_to_catalog: { Args: never; Returns: Json }
       grant_admin_by_email: { Args: { _email: string }; Returns: string }
       has_role: {
         Args: {
@@ -691,6 +693,7 @@ export type Database = {
         Args: { _order_id: string; _uid: string }
         Returns: boolean
       }
+      remap_my_profile_program: { Args: never; Returns: string }
       revoke_admin: { Args: { _user_id: string }; Returns: undefined }
       user_has_course: {
         Args: { _code: string; _uid: string }
