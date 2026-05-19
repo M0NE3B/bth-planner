@@ -68,6 +68,19 @@ export default function Index() {
     setSetupComplete(data?.setup_complete ?? false);
     setProfileData(data ? { program_name: data.program_name, start_year: data.start_year } : null);
     setLoading(false);
+
+    // Look up total HP from catalog (covers programs that don't exist as static templates)
+    if (data?.program_name) {
+      const { data: prog } = await supabase
+        .from('programs_catalog')
+        .select('total_hp')
+        .eq('name', data.program_name)
+        .eq('active', true)
+        .maybeSingle();
+      setCatalogProgramHp(prog?.total_hp != null ? Number(prog.total_hp) : null);
+    } else {
+      setCatalogProgramHp(null);
+    }
   };
 
   const handleLogout = async () => {
