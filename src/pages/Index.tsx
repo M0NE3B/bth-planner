@@ -131,6 +131,19 @@ export default function Index() {
       </>
     );
   }
+  // Step 2: Has program but hasn't marked course status yet
+  if (!statusOnboardingComplete) {
+    return (
+      <>
+        {showIntro && <IntroAnimation onDone={() => setShowIntro(false)} />}
+        <CourseStatusOnboardingPage
+          userId={session.user.id}
+          onComplete={() => checkProfile(session.user.id)}
+        />
+      </>
+    );
+  }
+
 
   // Compute total HP — prefer catalog (covers all imported programs), fall back to static template
   const programTemplate = bthPrograms.find(p => p.name === profileData?.program_name);
