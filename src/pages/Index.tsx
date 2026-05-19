@@ -68,11 +68,12 @@ export default function Index() {
 
     const { data } = await supabase
       .from('profiles')
-      .select('setup_complete, program_name, start_year')
+      .select('setup_complete, program_name, start_year, status_onboarding_complete')
       .eq('user_id', userId)
       .single();
 
     setSetupComplete(data?.setup_complete ?? false);
+    setStatusOnboardingComplete(data?.status_onboarding_complete ?? false);
     setProfileData(data ? { program_name: data.program_name, start_year: data.start_year } : null);
     setLoading(false);
 
