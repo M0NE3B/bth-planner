@@ -83,6 +83,10 @@ export default function PrerequisitesTab() {
         Förkunskapskraven redigeras manuellt per kurs i fliken <strong>Kurskatalog</strong> – öppna en kurs och justera dess regler. Endast krav som rör programmets egna kurser visas för studenten; gymnasie- och grundbehörighet filtreras bort automatiskt.
       </p>
 
+      <PrereqLogicPreview courses={courses} rows={rows} />
+
+
+
 
       <div className="flex flex-col md:flex-row md:items-end gap-2">
         <div className="relative flex-1">
