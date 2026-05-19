@@ -135,8 +135,16 @@ export function buildIndex(
     if (!target) continue;
     // Student-facing flow is fully automatic: drop gymnasium entry rules,
     // any custom_text, and anything explicitly flagged manual_review.
-    const reqs = prereqsToRequirements(rows, courses).filter(
+    const rawReqs = prereqsToRequirements(rows, courses).filter(
       (r) => !isGymnasiumRequirement(r) && r.type !== 'custom_text' && !r.manualReview,
+    );
+    // If the same course is required as both "completed_course" and "attended_course",
+    // the completed one is strictly stronger — drop the redundant attended_course entry.
+    const completedCodes = new Set(
+      rawReqs.filter((r) => r.type === 'completed_course').map((r) => r.courseCode.toUpperCase()),
+    );
+    const reqs = rawReqs.filter(
+      (r) => !(r.type === 'attended_course' && completedCodes.has(r.courseCode.toUpperCase())),
     );
     if (reqs.length > 0) requirementsByCode.set(target.course_code, reqs);
     // Build blocker map (which courses does X unlock?)
