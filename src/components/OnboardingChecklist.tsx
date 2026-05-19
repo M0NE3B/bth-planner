@@ -83,11 +83,6 @@ export default function OnboardingChecklist({ userId, onDismissed, onFocusRisk, 
             );
           })}
         </ul>
-        <div className="mt-3 flex justify-end">
-          <Button size="sm" variant="ghost" className="text-xs" onClick={dismiss}>
-            Stäng checklistan
-          </Button>
-        </div>
       </CardContent>
     </Card>
   );
