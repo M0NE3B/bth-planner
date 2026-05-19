@@ -139,7 +139,7 @@ function parseFragment(fragment: string, idx: CourseIndex): ParseFragmentOut {
 
   // ----- 3. HP from a civil engineering program group -----
   const prog = lower.match(
-    /(\d+)\s*hp\s+fr[åa]n\s+ett\s+civilingenj[öo]rsprogram\s+i\s+([^.;]+)/,
+    /(\d+)\s*hp\s+(?:ska\s+vara\s+)?fr[åa]n\s+ett\s+civilingenj[öo]rsprogram\s+i\s+([^.;]+)/,
   );
   if (prog) {
     const groups = splitList(prog[2])
