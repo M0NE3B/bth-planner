@@ -436,7 +436,23 @@ export function evaluateCourseRequirements(
   opts: EvaluateOptions = {},
 ): CourseRequirementsResult {
   const reqs = normalizeRequirements(course);
-  const rawResults = reqs.map(r => evaluateRequirement(r, ctx, opts));
+  let rawResults = reqs.map(r => evaluateRequirement(r, ctx, opts));
+
+  // If we have a "minst X HP från KURS"-krav för en kurs så är "kräver
+  // genomgång/avklarad" för samma kurs redundant — visa bara HP-kravet.
+  const hpCourseCodes = new Set(
+    rawResults
+      .filter(r => r.requirement.type === 'completed_hp_in_course')
+      .map(r => (r.requirement as { courseCode: string }).courseCode),
+  );
+  if (hpCourseCodes.size > 0) {
+    rawResults = rawResults.filter(r => {
+      const t = r.requirement.type;
+      if (t !== 'attended_course' && t !== 'completed_course') return true;
+      const code = (r.requirement as { courseCode: string }).courseCode;
+      return !hpCourseCodes.has(code);
+    });
+  }
 
   // Coalesce OR groups (rows sharing logicGroup with groupOperator === 'OR')
   // into a single composite result so the UI shows "X ELLER Y" instead of
