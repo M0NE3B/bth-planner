@@ -216,9 +216,15 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
   const years = Array.from({ length: maxYear }, (_, i) => i + 1);
   const hpByYear = years.map(year => {
     const yearCourses = courses.filter(c => c.year === year);
+    // Match total HP calculation: fully completed = full HP, otherwise count completed delmoment HP (capped).
+    const completedForYear = yearCourses.reduce((sum, c) => {
+      if (c.status === 'completed') return sum + c.hp;
+      const subDone = completedSubHpByCourse.get(c.id) || 0;
+      return sum + Math.min(c.hp, subDone);
+    }, 0);
     return {
       year,
-      completed: yearCourses.filter(c => c.status === 'completed').reduce((s, c) => s + c.hp, 0),
+      completed: Math.round(completedForYear * 10) / 10,
       total: yearCourses.reduce((s, c) => s + c.hp, 0),
     };
   });
