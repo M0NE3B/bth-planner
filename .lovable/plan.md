@@ -1,61 +1,82 @@
-# Förenkla & rensa upp förkunskaps-/kursvyn
-
 ## Mål
-Mindre brus, mer relevans. Studenten ska bara se det som faktiskt rör hens program och kurser. Admin gör förkunskaper manuellt istället för via parser.
 
-## 1. Förkunskaper – ta bort gymnasie-/grundkrav
-- I `prereqParser.ts` (och visning) filtrera bort regler som matchar gymnasiebehörighet: "grundläggande behörighet", "områdesbehörighet", "Matematik 3c/4", "Fysik 2", "Engelska 6", "svensk gymnasiekompetens", osv. → markeras som `gymnasium` och visas/sparas inte som krav.
-- Endast krav som refererar till programkurser (kurskod, HP i ämne på högskolenivå, total HP, nivå G1/G2) behålls.
-- `RiskOverview` och `CourseStatusPage` filtrerar bort allt som är gymnasium även om det ligger i `original_prerequisite_text`.
+Utvidga spärr-bonusen i **Fokusera härnäst** så att även typade HP-krav (`completed_hp_in_course`, `completed_hp_in_subject`, `completed_total_hp`) påverkar prioriteringen — inte bara klassiska kurs→kurs-krav.
 
-## 2. Ta bort Normalisera-verktyget
-- Ta bort `NormalizePrereqsCard` från `PrerequisitesTab`.
-- Lämna `prereqParser` kvar internt men oexponerat (admin redigerar manuellt via `CourseEditorSheet` + `PrerequisiteRow`).
-- Lägg till tydligare manuell editor i Förkunskaper-tabben: lista kurser, klick → redigera regler en och en. (Återanvänd `PrerequisiteRow`.)
+## Status idag
 
-## 3. Filtrera "spärrar"/blockers mot studentens program
-- I `useCatalogPrereqs` returnera `blocksByCode` som idag (full karta).
-- I `RiskOverview` och `CourseStatusPage`: filtrera `blocksByCode[code]` så endast kurser som finns i studentens `user_courses` visas under "Låser upp" / "Spärrade kurser".
-- "Fokusera på X" i Dashboard: samma filter – bara räkna blockers som ligger i studentens plan.
+- `useCatalogPrereqs.blocksByCode` indexerar redan `completed_course`, `attended_course` **och** `completed_hp_in_course` → så "minst 6 HP från MA1448" ger faktiskt redan bonus på MA1448-händelser. Det vi behöver lägga till är `completed_hp_in_subject` och `completed_total_hp`, och säkerställa att vi bara ger bonus när kravet faktiskt är **ouppfyllt**.
+- Dashboard.scoreEvent får idag spärr-bonus oavsett om kravet redan är uppfyllt — vilket är ett mindre fel som åtgärdas på vägen.
 
-## 4. Snyggare visning av förkunskaper per kurs
-- I `CourseStatusPage` ersätt nuvarande rådump med en kompakt lista:
-  - En rad per regel: ikon (✓/✗/?) + kort text på svenska ("MA1444 Linjär algebra – avklarad", "60 HP på G1-nivå – du har 42 HP").
-  - Dölj `custom_text` och `manual_review` bakom "Visa övriga krav" (default kollapsad).
-- Ta bort råtextblocket från student-vyn (behåll i admin).
+## Vad som byggs
 
-## 5. Klickbart kursnamn → kursinfo-popover
-- Ny komponent `CourseInfoPopover` (använd `HoverCard` + klick på mobil via `Dialog`).
-- Visar: kod, namn, HP, ämnesområde, nivå, original förkunskapstext, vilka av studentens kurser den låser upp, status.
-- Används i: `RiskOverview`, `CourseStatusPage`, Dashboard "Fokusera härnäst", kalender-event.
+### 1. Ny ren hjälpmodul: `src/lib/hpUnlock.ts`
 
-## 6. Valbara kurser i Kurser-vyn
-- I `CourseStatusPage` per år: ny sektion "Valbara kurser".
-- Hämta kandidater från `program_courses` där `mandatory = false` för studentens program + år, som inte redan finns i `user_courses`.
-- Knapp "Lägg till" → skapar `user_courses`-rad (kopplad via `catalog_course_id`).
-- Knapp "Ta bort" på valbara kurser som studenten lagt till (status `not_started` och `mandatory=false`).
+Exporterar `computeHpUnlockMap(...)` som tar:
+- `requirementsByCode: Map<string, CourseRequirement[]>` (från katalog)
+- `evalContext` (courses + subtasks med subject)
+- `planCodes: Set<string>` (studentens egna kurser)
+- `courseSubject: Map<string, string>` (kod → primärt huvudområde)
 
-## 7. Riskbild – förenkla
-- Behåll fyra grupperna men:
-  - Slå ihop "Manuell kontroll" + custom_text till en liten "Övrigt"-fotnot.
-  - "Spärrade kurser" filtreras mot studentens plan (punkt 3).
-  - "Saknade förkunskaper" döljer gymnasium (punkt 1).
-- Rekommendationer max 3 stycken, sorterade efter (antal blockers i planen × HP-vikt).
+Returnerar `Map<courseCode, UnlockEntry[]>` där varje entry är:
+```
+{ target: string, targetYear: number, kind: 'hp_in_course' | 'hp_in_subject' | 'total_hp' }
+```
 
-## Filer som ändras
-- `src/lib/admin/prereqParser.ts` – lägg till gymnasium-filter
-- `src/lib/useCatalogPrereqs.ts` – exportera helper `filterBlocksToPlan(codes, userCourseCodes)`
-- `src/components/RiskOverview.tsx` – filter + förenklad grupp
-- `src/components/CourseStatusPage.tsx` – ny prereq-rendering, valbara kurser, popover
-- `src/components/Dashboard.tsx` – blocker-bonus räknar bara plan-kurser
-- `src/components/admin/PrerequisitesTab.tsx` – ta bort Normalize-kortet, lägg till manuell lista
-- **Ny:** `src/components/CourseInfoPopover.tsx`
+Regler:
+- Endast targets som finns i `planCodes`.
+- Endast krav som **utvärderas som ouppfyllda** via `evaluateRequirement`.
+- `completed_hp_in_course` → en entry på den kurskoden (kind `hp_in_course`).
+- `completed_hp_in_subject` → för varje plankurs vars primära huvudområde matchar → en entry (kind `hp_in_subject`).
+- `completed_total_hp` → för varje plankurs som **inte** är avklarad → en entry (kind `total_hp`).
+- `completed_hp_in_program_group` och `completed_hp_at_level` ignoreras (kan inte utvärderas säkert i Dashboard-kontexten).
+- `custom_text` / `manualReview` ignoreras (matchar redan filtreringen i `useCatalogPrereqs`).
+- Per `(sourceCode, target, kind)` dedupliceras så samma krav inte räknas två gånger.
 
-## Vad jag INTE rör
-- Auth/RLS, befintliga `user_courses`/`study_events`/`course_subtasks`
-- Statiska program-fallbacks (`src/lib/programs/*`)
-- Migrations / databasstruktur (ren frontend-förändring)
-- Generated UI (`src/components/ui/*`)
+### 2. Wire-in i `Dashboard.tsx`
 
-## Inga tester körs i denna PR
-Lägger till manuell verifiering: kontrollera att tester fortsatt går grönt efter ändringarna; uppdaterar `RiskOverview`/`CourseStatusPage`-relaterade snapshot-tester om de finns.
+- Bygg `unlockMap` med `useMemo` parallellt med `blockingMap`, med samma `planCodes`-filter.
+- Bygg en `courseSubject`-map från `catalog.courseByCode` (primary subject via `resolveSubject`).
+- Bygg en lättviktig `evalContext` (samma form som CourseStatusPage redan gör) — kurser med subject, subtasks med course_code via `courseIdToCode`.
+- I `scoreEvent`, efter befintlig `blockingMap`-bonus, lägg till en HP-unlock-bonus baserad på `unlockMap.get(event.course_code)`:
+  - Bonus per kind, kapad så ingen kategori dubbelräknas:
+    - `hp_in_course`: 10 / 6 / 2 (current / upcoming / future år)
+    - `hp_in_subject`: 6 / 4 / 1
+    - `total_hp`: fast +3 om event har HP > 0, annars 0
+  - Totalsumman för HP-unlock kapas till **+18** för att inte överrösta deadline/typ-vikten.
+  - Ges **inte** om `blockingMap` redan gav bonus för samma target (undvik dubbelräkning).
+- Filterregel oförändrad: föreläsning/seminarium/annat utan HP eller kurskoppling kommer fortfarande inte med i `focusEvents`.
+
+### 3. Förklaringstexter
+
+Utvidga `getBlockingLabel` (eller en parallell `getUnlockLabel`) så `getShortReason` / `getDetailedReasons` kan visa något i stil med:
+- "Bidrar till HP-krav i {target}"
+- "Bidrar till HP inom {huvudområde} (krävs för {target})"
+- "Räknas mot totalt HP-krav för {target}"
+
+Endast en kort rad visas i kortet; fler visas i modalens detaljerade lista. Inga blockerande/hårda flaggor — det är endast en prioritetssignal.
+
+### 4. Tester
+
+- Ny fil `src/lib/hpUnlock.test.ts`:
+  - `completed_hp_in_course` ouppfyllt → producerar entry på källkursen.
+  - `completed_hp_in_course` redan uppfyllt → ingen entry.
+  - `completed_hp_in_subject` → entries för alla plankurser inom huvudområdet, ingen för andra subjects.
+  - `completed_total_hp` ouppfyllt → entries för plankurser som **inte** är avklarade; uppfyllt → tom.
+  - Target som inte finns i `planCodes` → ignoreras.
+  - `manualReview` / `custom_text` / `program_group` / `at_level` → ignoreras.
+- Befintliga `Dashboard.test.tsx` och `prioritization.test.ts` ska fortsatt passera oförändrade.
+- Kör hela testsviten (`bunx vitest run`) på slutet.
+
+## Vad som **inte** ändras
+
+- Kursstatusar, händelser, delmoment eller annan användardata.
+- Befintlig poänglogik (deadline, typvikt, HP-cap, kopplad subtask-bonus, klassisk blockingMap-bonus).
+- Filtreringen i `focusEvents` som håller föreläsning/seminarium borta från toppen.
+- Admin- eller CourseStatusPage-flödet.
+
+## Tekniska detaljer
+
+- `hpUnlock.ts` är en ren funktion utan React/Supabase — enkel att enhetstesta.
+- Använder befintliga `evaluateRequirement`, `primarySubject`, `resolveSubject` från `prerequisites.ts`.
+- HP-unlock-bonus kapas (max +18) så den kompletterar men aldrig dominerar deadline-signalen.
+- Plan-filter (`planCodes`) appliceras både i unlock-byggandet och i Dashboard, vilket håller bonusen relevant för studentens egen studieplan.

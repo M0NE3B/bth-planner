@@ -18,6 +18,8 @@ import RiskOverview from '@/components/RiskOverview';
 import EventFormFields from '@/components/EventFormFields';
 import { EVENT_TYPE_LABEL as TYPE_LABEL, EVENT_STATUS_LABEL as STATUS_LABEL, COURSE_STATUS_LABEL, parseHpInput } from '@/lib/events';
 import { useCatalogPrereqs } from '@/lib/useCatalogPrereqs';
+import { computeHpUnlockMap, computeUnlockBonus, type UnlockEntry } from '@/lib/hpUnlock';
+import { resolveSubject, type EvalContext } from '@/lib/prerequisites';
 
 interface DashboardProps {
   userId: string;
@@ -129,6 +131,53 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
     return map;
   }, [programName, catalog, courses]);
 
+  // Evaluation context for typed HP requirements (subject from catalog, subtasks by course_code).
+  const evalContext: EvalContext = useMemo(() => {
+    const courseIdToCode = new Map(courses.map(c => [c.id, c.course_code || '']));
+    const subjectOf = (code: string): string | null => {
+      const cat = catalog.courseByCode.get(code.toUpperCase());
+      return cat?.subject_area ?? resolveSubject(code).primary;
+    };
+    return {
+      courses: courses
+        .filter(c => c.course_code)
+        .map(c => ({
+          course_code: c.course_code as string,
+          status: c.status,
+          hp: Number(c.hp) || 0,
+          subject: subjectOf(c.course_code as string),
+        })),
+      subtasks: subtasks
+        .map(s => ({
+          course_code: courseIdToCode.get(s.course_id) || '',
+          completed: s.completed,
+          hp: Number(s.hp) || 0,
+        }))
+        .filter(s => s.course_code),
+    };
+  }, [courses, subtasks, catalog]);
+
+  // HP-based unlock map: source code → unmet HP targets it contributes toward.
+  const unlockMap = useMemo(() => {
+    if (catalog.requirementsByCode.size === 0) return new Map<string, UnlockEntry[]>();
+    const planCodes = new Set(courses.map(c => c.course_code).filter(Boolean) as string[]);
+    const yearByCode = new Map(courses.filter(c => c.course_code).map(c => [c.course_code as string, c.year]));
+    const subjectByCode = new Map<string, string>();
+    for (const code of planCodes) {
+      const cat = catalog.courseByCode.get(code.toUpperCase());
+      if (cat?.subject_area) subjectByCode.set(code, cat.subject_area);
+    }
+    return computeHpUnlockMap({
+      requirementsByCode: catalog.requirementsByCode,
+      evalContext,
+      planCodes,
+      subjectByCode,
+      yearByCode,
+    });
+  }, [catalog, courses, evalContext]);
+
+
+
 
   // Avoid double counting: completed courses count full HP; for non-completed
   // courses, count completed delmoment HP as "partly" (capped by course HP).
@@ -204,16 +253,29 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
     // HP / scope — capped so it can't flip exam vs lab at same deadline
     const hp = getHpForEvent(event);
     score += Math.min(hp * 2, 12);
+    // Current year = lowest year with non-completed courses (proxy for "where the student is").
+    const currentYear = Math.min(...courses.filter(c => c.status !== 'completed').map(c => c.year), 99);
+    const blockedTargets = new Set<string>();
     // Blocking course bonus — higher when the blocked course is current/upcoming
     if (event.course_code) {
       const blocked = blockingMap.get(event.course_code) || [];
       if (blocked.length > 0) {
+        for (const b of blocked) blockedTargets.add(b.code);
         const minYear = Math.min(...blocked.map(b => b.year));
-        const currentYear = Math.min(...courses.filter(c => c.status !== 'completed').map(c => c.year), 99);
         if (minYear <= currentYear) score += 16; // current/already-blocked
         else if (minYear === currentYear + 1) score += 10; // upcoming
         else score += 4; // future
       }
+    }
+    // HP-unlock bonus (typed HP requirements) — only for unmet requirements,
+    // capped so it can't dominate deadline/type signals.
+    if (event.course_code) {
+      const { bonus } = computeUnlockBonus(unlockMap.get(event.course_code), {
+        currentYear,
+        eventHasHp: hp > 0,
+        excludeTargets: blockedTargets,
+      });
+      score += bonus;
     }
     // Linked subtask not done
     const sub = subtasks.find(s => s.event_id === event.id);
@@ -359,12 +421,36 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
       : `Låser upp ${fmtC(first.code)}${more}`;
   };
 
+  // HP-baserad unlock-etikett (typade HP-krav). Returnerar kort + detaljerad lista.
+  const getHpUnlockLabels = (courseCode: string | null): { short: string | null; details: string[] } => {
+    if (!courseCode) return { short: null, details: [] };
+    const entries = unlockMap.get(courseCode);
+    if (!entries || entries.length === 0) return { short: null, details: [] };
+    const blocked = new Set((blockingMap.get(courseCode) || []).map(b => b.code));
+    const usable = entries.filter(e => !blocked.has(e.target));
+    if (usable.length === 0) return { short: null, details: [] };
+    // Rank: hp_in_course > hp_in_subject > total_hp, then earlier year first.
+    const kindRank = { hp_in_course: 0, hp_in_subject: 1, total_hp: 2 } as const;
+    usable.sort((a, b) =>
+      kindRank[a.kind] - kindRank[b.kind] || a.targetYear - b.targetYear,
+    );
+    const labelFor = (e: typeof usable[number]): string => {
+      if (e.kind === 'hp_in_course') return `Bidrar till HP-krav i ${fmtC(e.target)}`;
+      if (e.kind === 'hp_in_subject') return `Bidrar till HP-krav inom huvudområde för ${fmtC(e.target)}`;
+      return `Räknas mot totalt HP-krav för ${fmtC(e.target)}`;
+    };
+    const details = Array.from(new Set(usable.map(labelFor)));
+    const more = details.length > 1 ? ` (+${details.length - 1} till)` : '';
+    return { short: `${labelFor(usable[0])}${more}`, details };
+  };
+
   // Short, single-line reason for the card — matches ranking
   const getShortReason = (event: StudyEvent): string | null => {
     const h = hoursUntil(event);
     const hp = getEventHp(event);
     const course = event.course_code;
     const blocking = getBlockingLabel(course);
+    const hpUnlock = getHpUnlockLabels(course);
 
     if (h < 0) return course ? `Försenad deadline i ${course}` : 'Försenad deadline';
 
@@ -373,6 +459,7 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
       return course ? `Tenta i ${course}` : 'Tenta';
     }
     if (blocking) return blocking;
+    if (hpUnlock.short) return hpUnlock.short;
     if (event.event_type === 'assignment') {
       if (h < 72) return course ? `Uppgift med deadline snart i ${course}` : 'Uppgift med deadline snart';
       if (hp >= 3) return course ? `Större uppgift (${hp} HP) i ${course}` : `Större uppgift (${hp} HP)`;
@@ -412,6 +499,7 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
     if (event.course_code) reasons.push(`Kopplad till kursen ${event.course_code}`);
     if (hp > 0) reasons.push(`${hp} HP gör momentet större`);
     if (blocking) reasons.push(blocking);
+    for (const r of getHpUnlockLabels(event.course_code).details) reasons.push(r);
     if (linkedSubtask && !linkedSubtask.completed) reasons.push('Kopplad till ett kursmoment som inte är avklarat');
     if (event.status && event.status !== 'complete') reasons.push('Inte avklarad ännu');
     return reasons;
