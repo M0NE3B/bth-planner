@@ -19,11 +19,8 @@ export function estimateStudyYear(startYear: number, now: Date = new Date()): St
   const month = now.getMonth() + 1; // 1-12
   const year = now.getFullYear();
 
-  // Academic year (HT start). If we're in Jan-Jul, we're still in the academic year that started last calendar year.
   const academicYearStart = month >= 8 ? year : year - 1;
   const rawStudyYear = academicYearStart - startYear + 1;
-
-  // Semester: Aug-Dec = HT (1), Jan-Jul = VT (2)
   const semester: 1 | 2 = month >= 8 ? 1 : 2;
 
   const studyYear = Math.max(1, rawStudyYear);
@@ -35,4 +32,48 @@ export function estimateStudyYear(startYear: number, now: Date = new Date()): St
     : `År ${studyYear}, termin ${semester} (${termLabel})`;
 
   return { year: studyYear, semester, uncertain, label };
+}
+
+export type Term = 'HT' | 'VT';
+
+export interface AcademicMapping {
+  academicYear: number;
+  semester: number; // 1..N (overall semester index in program)
+}
+
+/**
+ * Map a calendar (term, year) to academic year/semester relative to a program
+ * start year. Assumes the program starts in HT of `startYear`.
+ *
+ * Rules:
+ * - HT year Y: academicYear = Y - startYear + 1, semester = (Y - startYear) * 2 + 1
+ * - VT year Y: academicYear = Y - startYear,     semester = (Y - startYear) * 2
+ */
+export function mapTermToAcademic(
+  startYear: number,
+  term: Term,
+  year: number,
+): AcademicMapping {
+  if (term === 'HT') {
+    const academicYear = year - startYear + 1;
+    const semester = (year - startYear) * 2 + 1;
+    return { academicYear, semester };
+  }
+  const academicYear = year - startYear;
+  const semester = (year - startYear) * 2;
+  return { academicYear, semester };
+}
+
+/**
+ * Returns true if (term, year) is outside the normal length (in years) of a program.
+ * For a 300 HP / 5-year program: max academic year is 5, max semester is 10.
+ */
+export function isOutsideProgramLength(
+  startYear: number,
+  term: Term,
+  year: number,
+  programLengthYears: number,
+): boolean {
+  const m = mapTermToAcademic(startYear, term, year);
+  return m.academicYear > programLengthYears || m.semester > programLengthYears * 2 || m.academicYear < 1;
 }
