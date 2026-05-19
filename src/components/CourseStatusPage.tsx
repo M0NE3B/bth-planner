@@ -653,7 +653,7 @@ function YearSection(props: YearSectionProps) {
     <div className="mb-6">
       <div className="flex items-center justify-between mb-3">
         <h3 className="font-heading font-semibold text-foreground">År {year}</h3>
-        <span className="text-xs text-muted-foreground">{stats?.completed}/{stats?.total} HP ({yearProgress}%)</span>
+        <span className="text-xs text-muted-foreground">{formatHp(stats?.completed ?? 0)}/{formatHp(stats?.total ?? 0)} HP ({yearProgress}%)</span>
       </div>
       <Progress value={yearProgress} className="h-1.5 mb-3" />
       <div className="space-y-2">
