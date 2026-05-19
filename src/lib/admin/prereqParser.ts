@@ -262,7 +262,7 @@ function parseFragment(fragment: string, idx: CourseIndex): ParseFragmentOut {
   if (total && !/\bi\b/.test(lower) && !/inom/.test(lower) && !codes.length) {
     rules.push({
       requirement_type: 'completed_total_hp',
-      required_hp: parseInt(total[1], 10),
+      required_hp: Number.parseInt(total[1], 10),
       original_text: original,
     });
     return { rules, consumed: true };
