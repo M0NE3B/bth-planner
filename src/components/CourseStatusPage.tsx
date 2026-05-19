@@ -1285,7 +1285,32 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
 
       <main className={`container max-w-2xl pt-10 pb-4 animate-slide-up ${isDirty ? 'pb-32 md:pb-24' : ''}`}>
         <div className="flex items-center justify-between mb-2">
-          <h2 className="font-heading text-2xl font-bold text-foreground">Dina kurser</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="font-heading text-2xl font-bold text-foreground">Dina kurser</h2>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Om kursstatus, HP och delmoment"
+                  className="inline-flex items-center justify-center h-7 w-7 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted"
+                >
+                  <Info className="h-4 w-4" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent side="bottom" align="start" className="w-80 text-sm space-y-2">
+                <p><strong>Kursstatus:</strong></p>
+                <ul className="text-xs space-y-1 pl-4 list-disc text-muted-foreground">
+                  <li><span className="text-foreground font-medium">Ej påbörjad</span> – inte börjat med kursen.</li>
+                  <li><span className="text-foreground font-medium">Påbörjad</span> – du läser kursen eller har gjort något delmoment, men hela kursen är inte klar.</li>
+                  <li><span className="text-foreground font-medium">Avklarad</span> – kursen är helt klar och godkänd.</li>
+                </ul>
+                <p className="text-xs text-muted-foreground">
+                  <strong className="text-foreground">Delmoment</strong> är mindre uppgifter (tentor, labbar, inlämningar) inom en kurs.
+                  HP du sätter på delmoment räknas in i ditt studieframsteg – men en helt avklarad kurs räknas alltid med sin fulla HP, så ingenting dubbelräknas.
+                </p>
+              </PopoverContent>
+            </Popover>
+          </div>
           <AddCourseDialog
             open={addDialogOpen} onOpenChange={setAddDialogOpen}
             addSearch={addSearch} setAddSearch={setAddSearch}
