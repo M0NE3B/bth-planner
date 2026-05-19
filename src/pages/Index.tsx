@@ -6,6 +6,7 @@ import AuthPage from '@/components/AuthPage';
 import LandingPage from '@/components/LandingPage';
 import IntroAnimation from '@/components/IntroAnimation';
 import ProgramSetupPage from '@/components/ProgramSetupPage';
+import CourseStatusOnboardingPage from '@/components/CourseStatusOnboardingPage';
 import CourseStatusPage from '@/components/CourseStatusPage';
 import AppLayout from '@/components/AppLayout';
 import Dashboard from '@/components/Dashboard';
@@ -21,6 +22,7 @@ export default function Index() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [setupComplete, setSetupComplete] = useState<boolean | null>(null);
+  const [statusOnboardingComplete, setStatusOnboardingComplete] = useState<boolean>(true);
   const [profileData, setProfileData] = useState<{ program_name: string | null; start_year: number | null } | null>(null);
   const [catalogProgramHp, setCatalogProgramHp] = useState<number | null>(null);
   const [authView, setAuthView] = useState<null | 'login' | 'signup'>(null);
@@ -66,11 +68,12 @@ export default function Index() {
 
     const { data } = await supabase
       .from('profiles')
-      .select('setup_complete, program_name, start_year')
+      .select('setup_complete, program_name, start_year, status_onboarding_complete')
       .eq('user_id', userId)
       .single();
 
     setSetupComplete(data?.setup_complete ?? false);
+    setStatusOnboardingComplete(data?.status_onboarding_complete ?? false);
     setProfileData(data ? { program_name: data.program_name, start_year: data.start_year } : null);
     setLoading(false);
 
@@ -128,6 +131,19 @@ export default function Index() {
       </>
     );
   }
+  // Step 2: Has program but hasn't marked course status yet
+  if (!statusOnboardingComplete) {
+    return (
+      <>
+        {showIntro && <IntroAnimation onDone={() => setShowIntro(false)} />}
+        <CourseStatusOnboardingPage
+          userId={session.user.id}
+          onComplete={() => checkProfile(session.user.id)}
+        />
+      </>
+    );
+  }
+
 
   // Compute total HP — prefer catalog (covers all imported programs), fall back to static template
   const programTemplate = bthPrograms.find(p => p.name === profileData?.program_name);
