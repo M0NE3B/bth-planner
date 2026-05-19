@@ -671,6 +671,7 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
       </Card>
 
       {/* Riskbild & rekommendationer */}
+      <div id="risk-overview" className="scroll-mt-24">
       <RiskOverview
         courses={courses.map(c => ({
           course_code: c.course_code || '',
