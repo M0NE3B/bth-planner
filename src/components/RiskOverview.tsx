@@ -127,7 +127,6 @@ export default function RiskOverview({
     course: CourseRow;
     results: RequirementResult[];
     hardUnmet: RequirementResult[];
-    manualUnmet: RequirementResult[]; // manual_review / custom_text rules
   };
 
   const analyses: Analysis[] = useMemo(() => courses
@@ -135,26 +134,16 @@ export default function RiskOverview({
     .map(c => {
       const reqs = requirementsByCode.get(c.course_code);
       if (!reqs || reqs.length === 0) {
-        return { course: c, results: [], hardUnmet: [], manualUnmet: [] };
+        return { course: c, results: [], hardUnmet: [] };
       }
       const r = evaluateCourseRequirements(
         { code: c.course_code, requirements: reqs },
         evalContext,
         { nameMap },
       );
-      // Split: hard real blockers vs manual/informational
-      const hardUnmet = r.unmet.filter(x =>
-        !x.requirement.manualReview && x.requirement.type !== 'custom_text'
-        && !(x.requirement.type === 'completed_hp_in_program_group')
-        && !(x.requirement.type === 'completed_hp_at_level')
-      );
-      const manualUnmet = r.results.filter(x =>
-        x.requirement.manualReview
-        || x.requirement.type === 'custom_text'
-        || x.requirement.type === 'completed_hp_in_program_group'
-        || x.requirement.type === 'completed_hp_at_level',
-      );
-      return { course: c, results: r.results, hardUnmet, manualUnmet };
+      // All remaining requirements are automatic — anything unmet is a real blocker.
+      const hardUnmet = r.unmet;
+      return { course: c, results: r.results, hardUnmet };
     }), [courses, requirementsByCode, evalContext, nameMap]);
 
   // 2. Saknade förkunskaper — all unique missing rules (across all not-completed courses)
@@ -172,9 +161,6 @@ export default function RiskOverview({
 
   // 3. Spärrade kurser — NOT partly (already started ⇒ assume dispens), has at least one hard unmet
   const blockedAnalyses = analyses.filter(a => a.course.status !== 'partly' && a.hardUnmet.length > 0);
-
-  // 4. Manuell kontroll — courses with manual/custom_text rules
-  const manualAnalyses = analyses.filter(a => a.manualUnmet.length > 0);
 
   // Build action-oriented recommendations.
   type Rec = { key: string; text: string; helper: string; priority: number };
