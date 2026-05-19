@@ -134,6 +134,15 @@ export default function CourseCatalogTab() {
 
   return (
     <div className="space-y-3">
+      <div className="grid grid-cols-2 md:grid-cols-7 gap-2 text-xs">
+        <SummaryStat label="Totalt" value={summary.total} />
+        <SummaryStat label="Aktiva" value={summary.active} />
+        <SummaryStat label="Arkiverade" value={summary.archived} />
+        <SummaryStat label="Saknar HP" value={summary.missingHp} tone={summary.missingHp ? 'warn' : undefined} />
+        <SummaryStat label="Saknar huvudområde" value={summary.missingSubject} tone={summary.missingSubject ? 'warn' : undefined} />
+        <SummaryStat label="Med förkunskaper" value={summary.withPrereqs} />
+        <SummaryStat label="Endast manuella" value={summary.onlyManual} tone={summary.onlyManual ? 'warn' : undefined} />
+      </div>
       <div className="flex flex-col md:flex-row md:items-end gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
