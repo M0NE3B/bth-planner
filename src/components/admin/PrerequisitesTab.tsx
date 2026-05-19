@@ -13,6 +13,7 @@ import { Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { CatalogCourse, CatalogPrerequisite, RequirementType } from '@/lib/catalog';
+import PrereqLogicPreview from './PrereqLogicPreview';
 
 const TYPES: { value: RequirementType | 'all'; label: string }[] = [
   { value: 'all', label: 'Alla typer' },
