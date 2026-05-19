@@ -96,21 +96,34 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
     setLoading(false);
   };
 
-  // Build map: courseCode -> array of courses it blocks (i.e. courses that list it as prerequisite)
+  const catalog = useCatalogPrereqs();
+
+  // Build map: courseCode -> array of courses it blocks. Catalog first, fallback to template.
   const blockingMap = useMemo(() => {
-    const map = new Map<string, { code: string; year: number; semester: 'HT' | 'VT' }[]>();
+    const map = new Map<string, { code: string; year: number; semester?: 'HT' | 'VT' }[]>();
+    // Catalog
+    if (catalog.blocksByCode.size > 0) {
+      const yearByCode = new Map(courses.filter(c => c.course_code).map(c => [c.course_code as string, c.year]));
+      for (const [pre, targets] of catalog.blocksByCode) {
+        for (const code of targets) {
+          const arr = map.get(pre) || [];
+          arr.push({ code, year: yearByCode.get(code) ?? 99 });
+          map.set(pre, arr);
+        }
+      }
+    }
     if (!programName) return map;
     const program = bthPrograms.find(p => p.name === programName);
     if (!program) return map;
     program.courses.forEach(c => {
       (c.prerequisites || []).forEach(pre => {
         const arr = map.get(pre) || [];
-        arr.push({ code: c.code, year: c.year, semester: c.semester });
+        if (!arr.some(x => x.code === c.code)) arr.push({ code: c.code, year: c.year, semester: c.semester });
         map.set(pre, arr);
       });
     });
     return map;
-  }, [programName]);
+  }, [programName, catalog, courses]);
 
   // Avoid double counting: completed courses count full HP; for non-completed
   // courses, count completed delmoment HP as "partly" (capped by course HP).
