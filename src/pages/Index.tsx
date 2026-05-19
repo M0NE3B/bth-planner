@@ -124,9 +124,10 @@ export default function Index() {
     );
   }
 
-  // Compute total HP from program template
+  // Compute total HP — prefer catalog (covers all imported programs), fall back to static template
   const programTemplate = bthPrograms.find(p => p.name === profileData?.program_name);
-  const totalProgramHp = programTemplate ? programTemplate.courses.reduce((s, c) => s + c.hp, 0) : undefined;
+  const staticHp = programTemplate ? programTemplate.courses.reduce((s, c) => s + c.hp, 0) : undefined;
+  const totalProgramHp = catalogProgramHp ?? staticHp;
   const pName = profileData?.program_name || '';
 
   // Main app
