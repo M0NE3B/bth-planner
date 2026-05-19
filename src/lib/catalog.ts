@@ -127,25 +127,21 @@ export function prereqsToRequirements(
   return rows.map((r) => {
     const code = r.required_course_id ? codeById.get(r.required_course_id) : undefined;
     const manual = !!r.manual_review;
+    const g = {
+      logicGroup: r.logic_group ?? null,
+      groupOperator: r.group_operator ?? null,
+    };
     switch (r.requirement_type) {
       case 'completed_course':
-        return { type: 'completed_course', courseCode: code ?? '' };
+        return { type: 'completed_course', courseCode: code ?? '', ...g };
       case 'attended_course':
-        return { type: 'attended_course', courseCode: code ?? '' };
+        return { type: 'attended_course', courseCode: code ?? '', ...g };
       case 'completed_hp_in_course':
-        return {
-          type: 'completed_hp_in_course',
-          courseCode: code ?? '',
-          hp: r.required_hp ?? 0,
-        };
+        return { type: 'completed_hp_in_course', courseCode: code ?? '', hp: r.required_hp ?? 0, ...g };
       case 'completed_hp_in_subject':
-        return {
-          type: 'completed_hp_in_subject',
-          subject: r.required_subject_area ?? '',
-          hp: r.required_hp ?? 0,
-        };
+        return { type: 'completed_hp_in_subject', subject: r.required_subject_area ?? '', hp: r.required_hp ?? 0, ...g };
       case 'completed_total_hp':
-        return { type: 'completed_total_hp', hp: r.required_hp ?? 0 };
+        return { type: 'completed_total_hp', hp: r.required_hp ?? 0, ...g };
       case 'completed_hp_in_program_group':
         return {
           type: 'completed_hp_in_program_group',
@@ -153,6 +149,7 @@ export function prereqsToRequirements(
           allowedProgramGroups: r.allowed_program_groups ?? [],
           manualReview: manual,
           originalText: r.original_text ?? undefined,
+          ...g,
         };
       case 'completed_hp_in_course_group':
         return {
@@ -163,6 +160,7 @@ export function prereqsToRequirements(
           allowedSubjectAreas: r.required_subject_area ? [r.required_subject_area] : [],
           manualReview: manual,
           originalText: r.original_text ?? undefined,
+          ...g,
         };
       case 'completed_hp_at_level':
         return {
@@ -171,10 +169,11 @@ export function prereqsToRequirements(
           level: r.required_level ?? '',
           manualReview: manual,
           originalText: r.original_text ?? undefined,
+          ...g,
         };
       case 'custom_text':
       default:
-        return { type: 'custom_text', text: r.original_text ?? '', blocking: false };
+        return { type: 'custom_text', text: r.original_text ?? '', blocking: false, ...g };
     }
   });
 }
