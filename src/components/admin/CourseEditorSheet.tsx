@@ -278,8 +278,10 @@ export default function CourseEditorSheet({ open, course, allCourses, onClose, o
                 ))}
               </div>
             )}
+            <PrereqLogicPreview prereqs={prereqs} courses={allCourses} />
           </div>
         </div>
+
 
         <SheetFooter className="mt-6 gap-2">
           <Button variant="outline" onClick={onClose} disabled={saving}>Avbryt</Button>
