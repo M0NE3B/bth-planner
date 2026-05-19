@@ -336,7 +336,7 @@ export default function RiskOverview({
               {metric === 'overdue' && 'Ej avklarade kurser'}
               {metric === 'missing' && 'Saknade förkunskaper'}
               {metric === 'blocked' && 'Spärrade kurser'}
-              
+              {metric === 'atrisk' && 'Riskerar att spärras'}
             </DialogTitle>
           </DialogHeader>
 
