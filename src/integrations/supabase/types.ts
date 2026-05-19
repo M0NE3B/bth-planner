@@ -434,6 +434,7 @@ export type Database = {
           program_name: string | null
           setup_complete: boolean | null
           start_year: number | null
+          status_onboarding_complete: boolean
           user_id: string
         }
         Insert: {
@@ -446,6 +447,7 @@ export type Database = {
           program_name?: string | null
           setup_complete?: boolean | null
           start_year?: number | null
+          status_onboarding_complete?: boolean
           user_id: string
         }
         Update: {
@@ -458,6 +460,7 @@ export type Database = {
           program_name?: string | null
           setup_complete?: boolean | null
           start_year?: number | null
+          status_onboarding_complete?: boolean
           user_id?: string
         }
         Relationships: []
