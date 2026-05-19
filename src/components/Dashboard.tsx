@@ -131,6 +131,53 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
     return map;
   }, [programName, catalog, courses]);
 
+  // Evaluation context for typed HP requirements (subject from catalog, subtasks by course_code).
+  const evalContext: EvalContext = useMemo(() => {
+    const courseIdToCode = new Map(courses.map(c => [c.id, c.course_code || '']));
+    const subjectOf = (code: string): string | null => {
+      const cat = catalog.courseByCode.get(code.toUpperCase());
+      return cat?.subject_area ?? resolveSubject(code).primary;
+    };
+    return {
+      courses: courses
+        .filter(c => c.course_code)
+        .map(c => ({
+          course_code: c.course_code as string,
+          status: c.status,
+          hp: Number(c.hp) || 0,
+          subject: subjectOf(c.course_code as string),
+        })),
+      subtasks: subtasks
+        .map(s => ({
+          course_code: courseIdToCode.get(s.course_id) || '',
+          completed: s.completed,
+          hp: Number(s.hp) || 0,
+        }))
+        .filter(s => s.course_code),
+    };
+  }, [courses, subtasks, catalog]);
+
+  // HP-based unlock map: source code → unmet HP targets it contributes toward.
+  const unlockMap = useMemo(() => {
+    if (catalog.requirementsByCode.size === 0) return new Map<string, UnlockEntry[]>();
+    const planCodes = new Set(courses.map(c => c.course_code).filter(Boolean) as string[]);
+    const yearByCode = new Map(courses.filter(c => c.course_code).map(c => [c.course_code as string, c.year]));
+    const subjectByCode = new Map<string, string>();
+    for (const code of planCodes) {
+      const cat = catalog.courseByCode.get(code.toUpperCase());
+      if (cat?.subject_area) subjectByCode.set(code, cat.subject_area);
+    }
+    return computeHpUnlockMap({
+      requirementsByCode: catalog.requirementsByCode,
+      evalContext,
+      planCodes,
+      subjectByCode,
+      yearByCode,
+    });
+  }, [catalog, courses, evalContext]);
+
+
+
 
   // Avoid double counting: completed courses count full HP; for non-completed
   // courses, count completed delmoment HP as "partly" (capped by course HP).
