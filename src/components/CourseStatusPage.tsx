@@ -600,6 +600,7 @@ function CourseCard(props: CourseCardProps) {
           onToggleSubtask={onToggleSubtask}
           onDeleteSubtask={onDeleteSubtask}
           onAddSubtask={onAddSubtask}
+          onSetSubtaskDate={onSetSubtaskDate}
         />
       </CardContent>
     </Card>
