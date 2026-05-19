@@ -443,18 +443,8 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
           <Input type="number" min={1} max={6} className="w-20" value={addYear}
             onChange={(e) => setAddYear(Math.max(1, Math.min(6, Number(e.target.value) || 1)))} />
         </div>
-        <div>
-          <Label className="text-xs">Termin</Label>
-          <Select value={addSemester} onValueChange={setAddSemester}>
-            <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="HT">HT</SelectItem>
-              <SelectItem value="VT">VT</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <Button size="sm" onClick={() => addCourse(addYear, addSemester)} className="gap-1">
-          <Plus className="h-4 w-4" /> Lägg till kurs i År {addYear} · {addSemester}
+        <Button size="sm" onClick={() => addCourse(addYear)} className="gap-1">
+          <Plus className="h-4 w-4" /> Lägg till kurs i År {addYear}
         </Button>
         <p className="text-xs text-muted-foreground ml-auto">
           Tips: byt kurs i raden efter att den lagts till. Samma kurs kan länkas till flera placeringar (t.ex. valbara kurser).
@@ -467,14 +457,12 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
         <div className="text-center py-6 space-y-3 border border-dashed border-border rounded-md">
           <p className="text-sm text-muted-foreground">Inga kurser länkade ännu. Använd verktyget ovan för att lägga till.</p>
         </div>
-      ) : grouped.map(([key, list]) => {
-        const [yearStr, semester] = key.split('-');
-        const year = Number(yearStr);
+      ) : grouped.map(([year, list]) => {
         return (
-          <div key={key} className="rounded-md border border-border">
+          <div key={year} className="rounded-md border border-border">
             <div className="px-3 py-2 border-b border-border bg-muted/30 flex justify-between items-center">
-              <span className="font-semibold text-sm">År {year} · {semester}</span>
-              <Button variant="outline" size="sm" onClick={() => addCourse(year, semester)} className="gap-1">
+              <span className="font-semibold text-sm">År {year}</span>
+              <Button variant="outline" size="sm" onClick={() => addCourse(year)} className="gap-1">
                 <Plus className="h-3.5 w-3.5" /> Lägg till kurs
               </Button>
             </div>
@@ -484,8 +472,6 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
                   <TableRow>
                     <TableHead className="min-w-[260px]">Kurs</TableHead>
                     <TableHead className="w-20">År</TableHead>
-                    <TableHead className="w-24">Termin</TableHead>
-                    <TableHead className="w-24">Period</TableHead>
                     <TableHead className="w-24">Obl.</TableHead>
                     <TableHead className="w-12"></TableHead>
                   </TableRow>
@@ -505,18 +491,6 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
                           onChange={(e) => updateRow(r, { year: Number(e.target.value) })} />
                       </TableCell>
                       <TableCell>
-                        <Select value={r.semester ?? 'HT'} onValueChange={(v) => updateRow(r, { semester: v })}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="HT">HT</SelectItem>
-                            <SelectItem value="VT">VT</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <Input value={r.period ?? ''} onChange={(e) => updateRow(r, { period: e.target.value })} />
-                      </TableCell>
-                      <TableCell>
                         <Switch checked={r.mandatory} onCheckedChange={(v) => updateRow(r, { mandatory: v })} />
                       </TableCell>
                       <TableCell>
@@ -532,6 +506,7 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
           </div>
         );
       })}
+
     </div>
   );
 }
