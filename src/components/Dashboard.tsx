@@ -531,6 +531,14 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
 
   return (
     <div className="space-y-6 md:mt-12 animate-slide-up">
+      {showChecklist && (
+        <OnboardingChecklist
+          userId={userId}
+          onDismissed={() => setShowChecklist(false)}
+          onFocusRisk={() => document.getElementById('risk-overview')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+          onFocusNext={() => document.getElementById('focus-next')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+        />
+      )}
       {/* HP Progress */}
       <Card>
         <CardHeader className="pb-3">
