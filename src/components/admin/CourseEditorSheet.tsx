@@ -33,6 +33,9 @@ interface Props {
   onSaved: () => void;
 }
 
+interface ProgramLink { id: string; name: string; year: number; semester: string | null }
+
+
 export default function CourseEditorSheet({ open, course, allCourses, onClose, onSaved }: Props) {
   const [form, setForm] = useState({
     course_code: '',
