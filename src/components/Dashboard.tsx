@@ -64,6 +64,7 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
   const [courses, setCourses] = useState<CourseData[]>([]);
   const [subtasks, setSubtasks] = useState<LinkedSubtask[]>([]);
   const [programName, setProgramName] = useState<string | null>(null);
+  const [showChecklist, setShowChecklist] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<StudyEvent | null>(null);
   const [editing, setEditing] = useState(false);
