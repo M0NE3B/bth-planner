@@ -547,7 +547,7 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
               {hpByYear.map(({ year, completed, total }) => (
                 <div key={year} className="text-center p-2 rounded-lg bg-muted/50">
                   <p className="text-xs text-muted-foreground mb-1">År {year}</p>
-                  <p className="font-heading font-bold text-sm text-foreground">{completed}/{total}</p>
+                  <p className="font-heading font-bold text-sm text-foreground">{formatHp(completed)}/{formatHp(total)}</p>
                   <Progress value={total > 0 ? (completed / total) * 100 : 0} className="h-1.5 mt-1" />
                 </div>
               ))}
