@@ -632,6 +632,7 @@ interface YearSectionProps {
   onToggleSubtask: (s: Subtask) => void;
   onDeleteSubtask: (s: Subtask) => void;
   onAddSubtask: (courseId: string) => void;
+  onSetSubtaskDate: (s: Subtask, date: string) => void;
 }
 
 function YearSection(props: YearSectionProps) {
@@ -641,7 +642,7 @@ function YearSection(props: YearSectionProps) {
     blocksMap, courseNameMap, subjectMap, originalReqMap, getRequirementResults,
     onUpdateStatus, onDelete, onToggleExpanded,
     setNewSubtaskText, setNewSubtaskDate, setNewSubtaskHp, setNewSubtaskType,
-    onToggleSubtask, onDeleteSubtask, onAddSubtask,
+    onToggleSubtask, onDeleteSubtask, onAddSubtask, onSetSubtaskDate,
   } = props;
 
   const yearProgress = stats && stats.total > 0
