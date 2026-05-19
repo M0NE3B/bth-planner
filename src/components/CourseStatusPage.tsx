@@ -920,6 +920,7 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
       const nc = data as UserCourse;
       setCourses(prev => [...prev, nc]);
       initialStatusesRef.current.set(nc.id, nc.status);
+      await removeFromDismissed(e.code);
       toast.success(`${e.name} tillagd som valbar kurs i år ${e.year}`);
     }
   };
