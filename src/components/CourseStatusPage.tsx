@@ -704,22 +704,30 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
 
   const prereqMap = useMemo(() => buildPrereqMap(programTemplate), [programTemplate]);
   const blocksMap = useMemo(() => {
-    // Catalog blocks take precedence; merge static template blocks for missing codes.
+    // Only count blockers that exist in the student's own plan
+    const planCodes = new Set(courses.map(c => c.course_code));
     const m = new Map<string, string[]>();
-    for (const [code, list] of catalog.blocksByCode) m.set(code, [...list]);
+    for (const [code, list] of catalog.blocksByCode) {
+      const f = filterPlanBlocks(list, planCodes);
+      if (f.length > 0) m.set(code, f);
+    }
     const staticBlocks = buildBlocksMap(programTemplate);
     for (const [code, list] of staticBlocks) {
-      if (m.has(code)) continue; // prefer catalog
-      m.set(code, list);
+      if (m.has(code)) continue;
+      const f = filterPlanBlocks(list, planCodes);
+      if (f.length > 0) m.set(code, f);
     }
     return m;
-  }, [programTemplate, catalog.blocksByCode]);
+  }, [programTemplate, catalog.blocksByCode, courses]);
 
   const originalReqMap = useMemo(() => {
     const m = new Map<string, string>();
     const staticMap = buildOriginalReqMap(programTemplate);
-    for (const [code, text] of staticMap) m.set(code, text);
-    // Catalog wins
+    for (const [code, text] of staticMap) {
+      const cleaned = cleanOriginalText(text);
+      if (cleaned) m.set(code, cleaned);
+    }
+    // Catalog wins (catalog already cleaned)
     for (const [code, text] of catalog.originalTextByCode) m.set(code, text);
     return m;
   }, [programTemplate, catalog.originalTextByCode]);
@@ -737,7 +745,6 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
       if (m.has(code)) return;
       m.set(code, resolveSubject(code, explicit).primary);
     };
-    // Prefer catalog subjects
     for (const [code, c] of catalog.courseByCode) add(c.course_code, c.subject_area);
     if (programTemplate) for (const c of programTemplate.courses) add(c.code, c.subject);
     for (const c of allBthCourses) add(c.code, c.subject);
@@ -747,19 +754,19 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
 
   const requirementsMap = useMemo(() => {
     const m = new Map<string, CourseRequirement[]>();
-    // Static fallback first
     if (programTemplate) {
       for (const c of programTemplate.courses) {
-        const reqs = normalizeRequirements(c);
+        const reqs = normalizeRequirements(c).filter(r => !isGymnasiumRequirement(r));
         if (reqs.length) m.set(c.code, reqs);
       }
     }
-    // Catalog overrides (preferred when available)
     for (const [code, reqs] of catalog.requirementsByCode) {
-      if (reqs.length > 0) m.set(code, reqs);
+      const filtered = reqs.filter(r => !isGymnasiumRequirement(r));
+      if (filtered.length > 0) m.set(code, filtered);
     }
     return m;
   }, [programTemplate, catalog.requirementsByCode]);
+
 
   const evalContext = useMemo(() => {
     const courseIdToCode = new Map(courses.map(c => [c.id, c.course_code]));
