@@ -47,7 +47,7 @@ export default function RiskOverview({
   catalog, subtasks = [],
 }: RiskOverviewProps) {
   const [expanded, setExpanded] = useState(false);
-  const [metric, setMetric] = useState<null | 'overdue' | 'missing' | 'blocked'>(null);
+  const [metric, setMetric] = useState<null | 'overdue' | 'missing' | 'blocked' | 'atrisk'>(null);
 
   const programTemplate = useMemo(
     () => (programName ? bthPrograms.find(p => p.name === programName) : null),
@@ -159,17 +159,29 @@ export default function RiskOverview({
   }
   const missingList = Array.from(missingMap.values());
 
-  // 3. Spärrade kurser — NOT partly (already started ⇒ assume dispens), has at least one hard unmet
-  const blockedAnalyses = analyses.filter(a => a.course.status !== 'partly' && a.hardUnmet.length > 0);
+  // 3. Spärrade kurser — kurser som redan skulle ha lästs (år ≤ aktuellt studieår)
+  // men där förkunskaper saknades, så studenten inte fick gå dem. Påbörjade
+  // kurser räknas inte (då har studenten faktiskt gått kursen, ev. med dispens).
+  const blockedAnalyses = analyses.filter(a =>
+    a.course.status === 'not_started'
+    && a.course.year <= currentStudyYear
+    && a.hardUnmet.length > 0,
+  );
+  // 4. Riskerar att spärras — framtida kurser där förkunskaper saknas just nu.
+  const atRiskAnalyses = analyses.filter(a =>
+    a.course.status === 'not_started'
+    && a.course.year > currentStudyYear
+    && a.hardUnmet.length > 0,
+  );
 
   // Build action-oriented recommendations.
   type Rec = { key: string; text: string; helper: string; priority: number };
   const recs: Rec[] = [];
 
-  // Priority 1: blocked CURRENT-year courses
-  const currentBlocked = blockedAnalyses.filter(a => a.course.year <= currentStudyYear);
-  // Priority 2: blocked upcoming (next-year) courses
-  const upcomingBlocked = blockedAnalyses.filter(a => a.course.year === currentStudyYear + 1);
+  // Priority 1: redan spärrade kurser (år ≤ aktuellt år, ej påbörjade)
+  const currentBlocked = blockedAnalyses;
+  // Priority 2: framtida kurser som riskerar att spärras nästa år
+  const upcomingBlocked = atRiskAnalyses.filter(a => a.course.year === currentStudyYear + 1);
 
   // Group recommendations by the requirement that unlocks things
   type RecGroup = { req: CourseRequirement; result: RequirementResult; affects: { code: string; year: number }[]; minYear: number };
@@ -217,7 +229,8 @@ export default function RiskOverview({
     }
   }
 
-  const noRisks = overdueCourses.length === 0 && blockedAnalyses.length === 0 && missingList.length === 0;
+  const noRisks = overdueCourses.length === 0 && blockedAnalyses.length === 0
+    && atRiskAnalyses.length === 0 && missingList.length === 0;
   const usingFallback = recGroups.size === 0;
 
   // List items for the expanded section
@@ -225,6 +238,12 @@ export default function RiskOverview({
     .sort((a, b) => a.course.year - b.course.year)
     .map(a => ({
       key: `b-${a.course.course_code}`,
+      text: `${fmt(a.course.course_code, nameOf(a.course.course_code))} (år ${a.course.year}) – ${a.hardUnmet.slice(0, 2).map(r => shortMessage(r)).join(', ')}${a.hardUnmet.length > 2 ? ` +${a.hardUnmet.length - 2}` : ''}`,
+    }));
+  const atRiskList = atRiskAnalyses
+    .sort((a, b) => a.course.year - b.course.year)
+    .map(a => ({
+      key: `r-${a.course.course_code}`,
       text: `${fmt(a.course.course_code, nameOf(a.course.course_code))} (år ${a.course.year}) – ${a.hardUnmet.slice(0, 2).map(r => shortMessage(r)).join(', ')}${a.hardUnmet.length > 2 ? ` +${a.hardUnmet.length - 2}` : ''}`,
     }));
   const missingDisplay = missingList.slice(0, 12).map(m => ({
@@ -236,7 +255,7 @@ export default function RiskOverview({
     text: `${fmt(c.course_code, c.course_name)} – inte avklarad från år ${c.year}`,
   }));
 
-  const totalDetails = blockedList.length + missingDisplay.length + overdueDisplay.length;
+  const totalDetails = blockedList.length + atRiskList.length + missingDisplay.length + overdueDisplay.length;
 
   return (
     <Card>
@@ -252,16 +271,20 @@ export default function RiskOverview({
             </PopoverTrigger>
             <PopoverContent side="bottom" align="start" className="w-72 text-sm">
               Riskbilden baseras på ditt program, startår, kursstatus och förkunskapskrav från kurskatalogen.
-              Påbörjade kurser räknas inte som spärrade. Allt utvärderas automatiskt utifrån dina HP och kursstatus.
+              <br /><br />
+              <strong>Spärrad</strong> = kurs som redan skulle ha lästs (år ≤ aktuellt studieår) men där förkunskaper saknades, så du inte fick gå den. Påbörjade kurser räknas inte.
+              <br /><br />
+              <strong>Riskerar att spärras</strong> = framtida kurs där du saknar förkunskaper just nu.
             </PopoverContent>
           </Popover>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
           <MetricCard icon={<BookOpen className="h-4 w-4 text-muted-foreground" />} label="Ej avklarade kurser" value={overdueCourses.length} onClick={() => setMetric('overdue')} />
           <MetricCard icon={<AlertTriangle className="h-4 w-4 text-warning" />} label="Saknade förkunskaper" value={missingList.length} emphasize={missingList.length > 0} onClick={() => setMetric('missing')} />
           <MetricCard icon={<Lock className="h-4 w-4 text-destructive" />} label="Spärrade kurser" value={blockedAnalyses.length} emphasize={blockedAnalyses.length > 0} onClick={() => setMetric('blocked')} />
+          <MetricCard icon={<AlertTriangle className="h-4 w-4 text-warning" />} label="Riskerar att spärras" value={atRiskAnalyses.length} emphasize={atRiskAnalyses.length > 0} onClick={() => setMetric('atrisk')} />
         </div>
 
         {noRisks ? (
@@ -292,6 +315,7 @@ export default function RiskOverview({
                 {expanded && (
                   <div className="space-y-3 pt-1">
                     {blockedList.length > 0 && <Group title="Spärrade kurser" items={blockedList} dotClass="bg-destructive" />}
+                    {atRiskList.length > 0 && <Group title="Riskerar att spärras" items={atRiskList} dotClass="bg-warning" />}
                     {missingDisplay.length > 0 && <Group title="Saknade förkunskaper" items={missingDisplay} dotClass="bg-warning" />}
                     {overdueDisplay.length > 0 && <Group title="Ej avklarade kurser" items={overdueDisplay} dotClass="bg-muted-foreground" />}
                   </div>
@@ -312,7 +336,7 @@ export default function RiskOverview({
               {metric === 'overdue' && 'Ej avklarade kurser'}
               {metric === 'missing' && 'Saknade förkunskaper'}
               {metric === 'blocked' && 'Spärrade kurser'}
-              
+              {metric === 'atrisk' && 'Riskerar att spärras'}
             </DialogTitle>
           </DialogHeader>
 
@@ -354,6 +378,25 @@ export default function RiskOverview({
                     <span className="font-mono text-sm font-semibold">{a.course.course_code}</span>
                     <Badge variant="outline" className="text-xs">År {a.course.year}</Badge>
                     <Badge variant="destructive" className="text-xs">Spärrad</Badge>
+                  </div>
+                  {nameOf(a.course.course_code) && <p className="text-sm text-muted-foreground mt-1">{nameOf(a.course.course_code)}</p>}
+                  <ul className="mt-2 space-y-1">
+                    {a.hardUnmet.map((r, i) => (
+                      <li key={i} className="text-sm">• {r.message}</li>
+                    ))}
+                  </ul>
+                </li>
+              ))}</ul>
+          )}
+
+          {metric === 'atrisk' && (atRiskAnalyses.length === 0
+            ? <p className="text-sm text-muted-foreground">Inga framtida kurser i riskzonen.</p>
+            : <ul className="space-y-2">{atRiskAnalyses.map(a => (
+                <li key={a.course.course_code} className="rounded-md border p-3">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-sm font-semibold">{a.course.course_code}</span>
+                    <Badge variant="outline" className="text-xs">År {a.course.year}</Badge>
+                    <Badge variant="secondary" className="text-xs">Riskerar att spärras</Badge>
                   </div>
                   {nameOf(a.course.course_code) && <p className="text-sm text-muted-foreground mt-1">{nameOf(a.course.course_code)}</p>}
                   <ul className="mt-2 space-y-1">
