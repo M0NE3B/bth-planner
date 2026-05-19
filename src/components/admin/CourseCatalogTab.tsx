@@ -178,6 +178,18 @@ export default function CourseCatalogTab() {
           <Switch id="m-hp" checked={onlyMissingHp} onCheckedChange={setOnlyMissingHp} />
           <Label htmlFor="m-hp" className="text-sm">Saknar HP</Label>
         </div>
+        <div className="w-full md:w-48">
+          <Label className="text-xs">Förkunskaper</Label>
+          <Select value={prereqFilter} onValueChange={(v) => setPrereqFilter(v as 'all' | 'structured' | 'manual' | 'none')}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Alla</SelectItem>
+              <SelectItem value="structured">Strukturerade</SelectItem>
+              <SelectItem value="manual">Endast manuella</SelectItem>
+              <SelectItem value="none">Inga förkunskaper</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         <div className="flex items-center gap-2 px-2">
           <Switch id="m-sub" checked={onlyMissingSubject} onCheckedChange={setOnlyMissingSubject} />
           <Label htmlFor="m-sub" className="text-sm">Saknar område</Label>
