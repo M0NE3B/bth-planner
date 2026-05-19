@@ -258,7 +258,6 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
   const [totalHp, setTotalHp] = useState<number | ''>(program.total_hp ?? '');
   const [savingMeta, setSavingMeta] = useState(false);
   const [addYear, setAddYear] = useState<number>(1);
-  const [addSemester, setAddSemester] = useState<string>('HT');
 
   const load = async () => {
     setLoading(true);
@@ -266,7 +265,7 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
       .from('program_courses')
       .select('*, course:courses_catalog(*)')
       .eq('program_id', program.id)
-      .order('year').order('semester').order('sort_order');
+      .order('year').order('sort_order');
     if (error) { toast.error('Kunde inte ladda kurser'); setLoading(false); return; }
     setRows((data ?? []) as unknown as PCRow[]);
     setLoading(false);
@@ -280,22 +279,14 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
   );
 
   const grouped = useMemo(() => {
-    const map = new Map<string, PCRow[]>();
+    const map = new Map<number, PCRow[]>();
     for (const r of rows) {
-      const key = `${r.year}-${r.semester ?? 'HT'}`;
-      const list = map.get(key) ?? [];
-      list.push(r); map.set(key, list);
+      const list = map.get(r.year) ?? [];
+      list.push(r); map.set(r.year, list);
     }
-    // Sort by year (numeric) then semester (HT before VT)
-    return Array.from(map.entries()).sort((a, b) => {
-      const [ay, as] = a[0].split('-');
-      const [by, bs] = b[0].split('-');
-      const yDiff = Number(ay) - Number(by);
-      if (yDiff !== 0) return yDiff;
-      const semOrder = (s: string) => (s === 'HT' ? 0 : s === 'VT' ? 1 : 2);
-      return semOrder(as) - semOrder(bs);
-    });
+    return Array.from(map.entries()).sort((a, b) => a[0] - b[0]);
   }, [rows]);
+
 
   const stats = useMemo(() => {
     const linkedCourses = rows.length;
@@ -330,7 +321,7 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
     return { linkedCourses, mandatoryHp, optionalHp, totalLinkedHp, activeCount, inactiveCount, expectedOptional, hpStatus, hpMessage };
   }, [rows, totalHp]);
 
-  const addCourse = async (year: number, semester: string, courseId?: string) => {
+  const addCourse = async (year: number, courseId?: string) => {
     // Pick provided course, or first one in catalog (duplicates across placements are allowed).
     const chosen = courseId
       ? courses.find((c) => c.id === courseId)
@@ -340,9 +331,10 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
       await upsertProgramCourse({
         program_id: program.id,
         course_id: chosen.id,
-        year, semester,
+        year,
+        semester: null,
         mandatory: true,
-        sort_order: rows.filter((r) => r.year === year && r.semester === semester).length,
+        sort_order: rows.filter((r) => r.year === year).length,
       });
       void load();
     } catch (e) {
@@ -350,6 +342,7 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
       toast.error(`Kunde inte lägga till kurs${msg ? `: ${msg}` : ''}`);
     }
   };
+
 
   const updateRow = async (row: PCRow, patch: Partial<CatalogProgramCourse>) => {
     try {
@@ -450,18 +443,8 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
           <Input type="number" min={1} max={6} className="w-20" value={addYear}
             onChange={(e) => setAddYear(Math.max(1, Math.min(6, Number(e.target.value) || 1)))} />
         </div>
-        <div>
-          <Label className="text-xs">Termin</Label>
-          <Select value={addSemester} onValueChange={setAddSemester}>
-            <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="HT">HT</SelectItem>
-              <SelectItem value="VT">VT</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <Button size="sm" onClick={() => addCourse(addYear, addSemester)} className="gap-1">
-          <Plus className="h-4 w-4" /> Lägg till kurs i År {addYear} · {addSemester}
+        <Button size="sm" onClick={() => addCourse(addYear)} className="gap-1">
+          <Plus className="h-4 w-4" /> Lägg till kurs i År {addYear}
         </Button>
         <p className="text-xs text-muted-foreground ml-auto">
           Tips: byt kurs i raden efter att den lagts till. Samma kurs kan länkas till flera placeringar (t.ex. valbara kurser).
@@ -474,14 +457,12 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
         <div className="text-center py-6 space-y-3 border border-dashed border-border rounded-md">
           <p className="text-sm text-muted-foreground">Inga kurser länkade ännu. Använd verktyget ovan för att lägga till.</p>
         </div>
-      ) : grouped.map(([key, list]) => {
-        const [yearStr, semester] = key.split('-');
-        const year = Number(yearStr);
+      ) : grouped.map(([year, list]) => {
         return (
-          <div key={key} className="rounded-md border border-border">
+          <div key={year} className="rounded-md border border-border">
             <div className="px-3 py-2 border-b border-border bg-muted/30 flex justify-between items-center">
-              <span className="font-semibold text-sm">År {year} · {semester}</span>
-              <Button variant="outline" size="sm" onClick={() => addCourse(year, semester)} className="gap-1">
+              <span className="font-semibold text-sm">År {year}</span>
+              <Button variant="outline" size="sm" onClick={() => addCourse(year)} className="gap-1">
                 <Plus className="h-3.5 w-3.5" /> Lägg till kurs
               </Button>
             </div>
@@ -491,8 +472,6 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
                   <TableRow>
                     <TableHead className="min-w-[260px]">Kurs</TableHead>
                     <TableHead className="w-20">År</TableHead>
-                    <TableHead className="w-24">Termin</TableHead>
-                    <TableHead className="w-24">Period</TableHead>
                     <TableHead className="w-24">Obl.</TableHead>
                     <TableHead className="w-12"></TableHead>
                   </TableRow>
@@ -512,18 +491,6 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
                           onChange={(e) => updateRow(r, { year: Number(e.target.value) })} />
                       </TableCell>
                       <TableCell>
-                        <Select value={r.semester ?? 'HT'} onValueChange={(v) => updateRow(r, { semester: v })}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="HT">HT</SelectItem>
-                            <SelectItem value="VT">VT</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <Input value={r.period ?? ''} onChange={(e) => updateRow(r, { period: e.target.value })} />
-                      </TableCell>
-                      <TableCell>
                         <Switch checked={r.mandatory} onCheckedChange={(v) => updateRow(r, { mandatory: v })} />
                       </TableCell>
                       <TableCell>
@@ -539,6 +506,7 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
           </div>
         );
       })}
+
     </div>
   );
 }
