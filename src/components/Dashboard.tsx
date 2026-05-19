@@ -633,7 +633,7 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
                         {TYPE_LABEL[event.event_type] || event.event_type}
                       </Badge>
                       {hp > 0 && (
-                        <Badge variant="outline" className="text-xs">{hp} HP</Badge>
+                        <Badge variant="outline" className="text-xs">{formatHp(hp)} HP</Badge>
                       )}
                     </div>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
