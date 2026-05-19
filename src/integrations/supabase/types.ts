@@ -431,6 +431,7 @@ export type Database = {
           display_name: string | null
           id: string
           is_visible: boolean
+          onboarding_checklist_dismissed: boolean
           program_name: string | null
           setup_complete: boolean | null
           start_year: number | null
@@ -444,6 +445,7 @@ export type Database = {
           display_name?: string | null
           id?: string
           is_visible?: boolean
+          onboarding_checklist_dismissed?: boolean
           program_name?: string | null
           setup_complete?: boolean | null
           start_year?: number | null
@@ -457,6 +459,7 @@ export type Database = {
           display_name?: string | null
           id?: string
           is_visible?: boolean
+          onboarding_checklist_dismissed?: boolean
           program_name?: string | null
           setup_complete?: boolean | null
           start_year?: number | null
