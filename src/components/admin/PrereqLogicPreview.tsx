@@ -86,14 +86,18 @@ export default function PrereqLogicPreview({ prereqs, courses }: Props) {
               {g.logic != null && <span className="text-muted-foreground">logikgrupp #{g.logic}</span>}
             </div>
             <ul className="space-y-0.5 text-xs">
-              {g.rows.map((r, idx) => (
-                <li key={idx} className="flex gap-2">
-                  <span className="text-muted-foreground w-10 shrink-0">
-                    {idx === 0 ? '•' : g.operator === 'OR' ? 'eller' : 'och'}
-                  </span>
-                  <span>{describe(r, byId)}</span>
-                </li>
-              ))}
+              {g.rows.map((r, idx) => {
+                let connector: string;
+                if (idx === 0) connector = '•';
+                else if (g.operator === 'OR') connector = 'eller';
+                else connector = 'och';
+                return (
+                  <li key={`${g.key}-${idx}`} className="flex gap-2">
+                    <span className="text-muted-foreground w-10 shrink-0">{connector}</span>
+                    <span>{describe(r, byId)}</span>
+                  </li>
+                );
+              })}
             </ul>
           </li>
         ))}
