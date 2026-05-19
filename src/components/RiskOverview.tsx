@@ -271,16 +271,20 @@ export default function RiskOverview({
             </PopoverTrigger>
             <PopoverContent side="bottom" align="start" className="w-72 text-sm">
               Riskbilden baseras på ditt program, startår, kursstatus och förkunskapskrav från kurskatalogen.
-              Påbörjade kurser räknas inte som spärrade. Allt utvärderas automatiskt utifrån dina HP och kursstatus.
+              <br /><br />
+              <strong>Spärrad</strong> = kurs som redan skulle ha lästs (år ≤ aktuellt studieår) men där förkunskaper saknades, så du inte fick gå den. Påbörjade kurser räknas inte.
+              <br /><br />
+              <strong>Riskerar att spärras</strong> = framtida kurs där du saknar förkunskaper just nu.
             </PopoverContent>
           </Popover>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
           <MetricCard icon={<BookOpen className="h-4 w-4 text-muted-foreground" />} label="Ej avklarade kurser" value={overdueCourses.length} onClick={() => setMetric('overdue')} />
           <MetricCard icon={<AlertTriangle className="h-4 w-4 text-warning" />} label="Saknade förkunskaper" value={missingList.length} emphasize={missingList.length > 0} onClick={() => setMetric('missing')} />
           <MetricCard icon={<Lock className="h-4 w-4 text-destructive" />} label="Spärrade kurser" value={blockedAnalyses.length} emphasize={blockedAnalyses.length > 0} onClick={() => setMetric('blocked')} />
+          <MetricCard icon={<AlertTriangle className="h-4 w-4 text-warning" />} label="Riskerar att spärras" value={atRiskAnalyses.length} emphasize={atRiskAnalyses.length > 0} onClick={() => setMetric('atrisk')} />
         </div>
 
         {noRisks ? (
