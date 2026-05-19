@@ -195,9 +195,16 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
     // HP / scope — capped so it can't flip exam vs lab at same deadline
     const hp = getHpForEvent(event);
     score += Math.min(hp * 2, 12);
-    // Blocking course bonus
-    if (event.course_code && (blockingMap.get(event.course_code)?.length || 0) > 0) {
-      score += 8;
+    // Blocking course bonus — higher when the blocked course is current/upcoming
+    if (event.course_code) {
+      const blocked = blockingMap.get(event.course_code) || [];
+      if (blocked.length > 0) {
+        const minYear = Math.min(...blocked.map(b => b.year));
+        const currentYear = Math.min(...courses.filter(c => c.status !== 'completed').map(c => c.year), 99);
+        if (minYear <= currentYear) score += 16; // current/already-blocked
+        else if (minYear === currentYear + 1) score += 10; // upcoming
+        else score += 4; // future
+      }
     }
     // Linked subtask not done
     const sub = subtasks.find(s => s.event_id === event.id);
