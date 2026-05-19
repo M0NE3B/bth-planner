@@ -23,6 +23,7 @@ import {
 } from '@/lib/admin';
 import { supabase } from '@/integrations/supabase/client';
 import PrerequisiteRow from './PrerequisiteRow';
+import PrereqLogicPreview from './PrereqLogicPreview';
 import type { CourseOption } from './CourseCombobox';
 
 interface Props {
