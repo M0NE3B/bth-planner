@@ -315,6 +315,7 @@ export default function RiskOverview({
                 {expanded && (
                   <div className="space-y-3 pt-1">
                     {blockedList.length > 0 && <Group title="Spärrade kurser" items={blockedList} dotClass="bg-destructive" />}
+                    {atRiskList.length > 0 && <Group title="Riskerar att spärras" items={atRiskList} dotClass="bg-warning" />}
                     {missingDisplay.length > 0 && <Group title="Saknade förkunskaper" items={missingDisplay} dotClass="bg-warning" />}
                     {overdueDisplay.length > 0 && <Group title="Ej avklarade kurser" items={overdueDisplay} dotClass="bg-muted-foreground" />}
                   </div>
