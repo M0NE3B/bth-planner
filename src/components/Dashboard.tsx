@@ -937,7 +937,7 @@ function MetricDetailDialog({
         <p className="text-sm text-muted-foreground">
           Totalt {totalCount} kurser i din studieplan.
         </p>
-        <Link to="/courses">
+        <Link to="/kurser">
           <Button variant="outline" size="sm" className="w-full">Gå till kurser</Button>
         </Link>
       </div>
