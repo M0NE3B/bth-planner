@@ -430,7 +430,45 @@ export function evaluateCourseRequirements(
   opts: EvaluateOptions = {},
 ): CourseRequirementsResult {
   const reqs = normalizeRequirements(course);
-  const results = reqs.map(r => evaluateRequirement(r, ctx, opts));
+  const rawResults = reqs.map(r => evaluateRequirement(r, ctx, opts));
+
+  // Coalesce OR groups (rows sharing logicGroup with groupOperator === 'OR')
+  // into a single composite result so the UI shows "X ELLER Y" instead of
+  // two AND-style bullets.
+  const results: RequirementResult[] = [];
+  const orGroups = new Map<number, RequirementResult[]>();
+  for (const r of rawResults) {
+    const lg = r.requirement.logicGroup;
+    const op = r.requirement.groupOperator;
+    if (lg != null && op === 'OR') {
+      const arr = orGroups.get(lg) ?? [];
+      arr.push(r);
+      orGroups.set(lg, arr);
+    } else {
+      results.push(r);
+    }
+  }
+  for (const [, group] of orGroups) {
+    if (group.length === 1) { results.push(group[0]); continue; }
+    const fulfilled = group.some(g => g.fulfilled);
+    const severity: RequirementResult['severity'] = fulfilled
+      ? 'met'
+      : group.some(g => g.severity === 'soft') ? 'soft' : 'hard';
+    // Strip a leading "Kräver " / "Avklarad" / "Genomgången" prefix so the
+    // joined message reads naturally.
+    const stripPrefix = (m: string) => m
+      .replace(/^Kräver\s+(avklarad kurs|genomgången\/påbörjad kurs|minst\s+)/i, (_, p) => /minst/i.test(p) ? 'minst ' : '')
+      .replace(/^(Avklarad|Genomgången):\s*/i, '');
+    const parts = group.map(g => stripPrefix(g.message));
+    const verb = fulfilled ? 'Uppfyllt – något av:' : 'Kräver något av:';
+    results.push({
+      requirement: group[0].requirement,
+      fulfilled,
+      severity,
+      message: `${verb} ${parts.join(' ELLER ')}`,
+    });
+  }
+
   const unmet = results.filter(r => !r.fulfilled);
   return {
     results,
