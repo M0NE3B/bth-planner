@@ -212,7 +212,7 @@ export default function CourseCatalogTab() {
               <TableRow><TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-6">Laddar…</TableCell></TableRow>
             ) : filtered.length === 0 ? (
               <TableRow><TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-6">
-                {courses.length === 0 ? 'Katalogen är tom. Använd "Import & verktyg" för att importera från statiska mallar.' : 'Inga kurser matchar filtret.'}
+                {courses.length === 0 ? 'Katalogen är tom. Importera via fliken "Import (JSON)".' : 'Inga kurser matchar filtret.'}
               </TableCell></TableRow>
             ) : filtered.map((c) => (
               <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => { setEditing(c); setSheetOpen(true); }}>
