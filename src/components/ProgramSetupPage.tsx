@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { GraduationCap, ChevronRight, Search, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,61 +9,179 @@ import { bthPrograms } from '@/lib/programs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { estimateStudyYear } from '@/lib/studyYear';
+import {
+  fetchPrograms, fetchProgramCourses,
+  type CatalogProgram, type CatalogProgramCourse, type CatalogCourse,
+} from '@/lib/catalog';
 
 interface ProgramSetupPageProps {
   userId: string;
   onComplete: () => void;
 }
 
+interface ProgramOption {
+  /** Stable key for selection. */
+  key: string;
+  name: string;
+  /** Total HP (from catalog or computed from static template). */
+  totalHp: number | null;
+  /** Number of courses (catalog only — informational). */
+  courseCount: number;
+  source: 'catalog' | 'static';
+  /** Catalog program id (when source === 'catalog'). */
+  catalogId?: string;
+  /** Static template index (when source === 'static'). */
+  staticIndex?: number;
+}
+
 export default function ProgramSetupPage({ userId, onComplete }: ProgramSetupPageProps) {
-  const [selected, setSelected] = useState<number | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [startYear, setStartYear] = useState('');
   const [loading, setLoading] = useState(false);
+  const [catalogPrograms, setCatalogPrograms] = useState<CatalogProgram[] | null>(null);
+  const [catalogCourseCounts, setCatalogCourseCounts] = useState<Map<string, number>>(new Map());
 
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 10 }, (_, i) => currentYear - i);
 
-  const filteredPrograms = bthPrograms.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase())
-  );
+  // Load programs from catalog; fall back to static templates if catalog empty.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const progs = await fetchPrograms();
+        if (cancelled) return;
+        setCatalogPrograms(progs);
+        if (progs.length > 0) {
+          const { data: pcRows } = await supabase.from('program_courses').select('program_id');
+          if (cancelled) return;
+          const counts = new Map<string, number>();
+          for (const r of (pcRows ?? []) as { program_id: string }[]) {
+            counts.set(r.program_id, (counts.get(r.program_id) ?? 0) + 1);
+          }
+          setCatalogCourseCounts(counts);
+        }
+      } catch {
+        if (!cancelled) setCatalogPrograms([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const options = useMemo<ProgramOption[]>(() => {
+    // Prefer catalog if populated.
+    if (catalogPrograms && catalogPrograms.length > 0) {
+      return catalogPrograms
+        .filter(p => p.active)
+        .map(p => ({
+          key: `cat:${p.id}`,
+          name: p.name,
+          totalHp: p.total_hp != null ? Number(p.total_hp) : null,
+          courseCount: catalogCourseCounts.get(p.id) ?? 0,
+          source: 'catalog' as const,
+          catalogId: p.id,
+        }));
+    }
+    // Static fallback
+    return bthPrograms.map((p, i) => ({
+      key: `static:${i}`,
+      name: p.name,
+      totalHp: p.courses.reduce((s, c) => s + c.hp, 0),
+      courseCount: p.courses.length,
+      source: 'static' as const,
+      staticIndex: i,
+    }));
+  }, [catalogPrograms, catalogCourseCounts]);
+
+  const filtered = options.filter(o => o.name.toLowerCase().includes(search.toLowerCase()));
+  const selectedOption = options.find(o => o.key === selected) ?? null;
 
   const handleContinue = async () => {
-    if (selected === null || !startYear) {
+    if (!selectedOption || !startYear) {
       toast.error('Välj program och startår');
       return;
     }
 
     setLoading(true);
     try {
-      const program = bthPrograms[selected];
-      
-      // Update profile
+      const startYearNum = Number.parseInt(startYear, 10);
+
+      // Safety: never overwrite an existing study plan.
+      const { data: existing } = await supabase
+        .from('user_courses').select('id').eq('user_id', userId).limit(1);
+      if (existing && existing.length > 0) {
+        // Just update profile, do not recreate plan.
+        await supabase.from('profiles').update({
+          program_name: selectedOption.name,
+          start_year: startYearNum,
+          setup_complete: true,
+        }).eq('user_id', userId);
+        toast.success('Program valt! Befintlig studieplan bibehållen.');
+        onComplete();
+        return;
+      }
+
       const { error: profileError } = await supabase
         .from('profiles')
-        .update({ 
-          program_name: program.name, 
-          start_year: Number.parseInt(startYear, 10),
-          setup_complete: true 
+        .update({
+          program_name: selectedOption.name,
+          start_year: startYearNum,
+          setup_complete: true,
         })
         .eq('user_id', userId);
-
       if (profileError) throw profileError;
 
-      // Calculate which years the student has completed based on start year
-      const yearsStudied = currentYear - Number.parseInt(startYear, 10);
+      const yearsStudied = currentYear - startYearNum;
+      const maxYear = Math.max(yearsStudied, 1) + 1;
 
-      // Insert all courses from the program for years up to current
-      const coursesToInsert = program.courses
-        .filter(c => c.year <= Math.max(yearsStudied, 1) + 1) // Include current + next year
-        .map(c => ({
-          user_id: userId,
-          course_code: c.code,
-          course_name: c.name,
-          year: c.year,
-          hp: c.hp,
-          status: 'not_started' as const,
-        }));
+      let coursesToInsert: Array<{
+        user_id: string;
+        course_code: string;
+        course_name: string;
+        year: number;
+        hp: number;
+        status: 'not_started';
+        catalog_course_id?: string | null;
+      }> = [];
+
+      if (selectedOption.source === 'catalog' && selectedOption.catalogId) {
+        try {
+          const rows = await fetchProgramCourses(selectedOption.catalogId);
+          // Only seed mandatory courses by default; optional/elective pool is opt-in.
+          coursesToInsert = rows
+            .filter(r => r.mandatory && r.year <= maxYear && r.course)
+            .map((r: CatalogProgramCourse & { course: CatalogCourse }) => ({
+              user_id: userId,
+              course_code: r.course.course_code,
+              course_name: r.course.course_name,
+              year: r.year,
+              hp: Number(r.course.hp) || 0,
+              status: 'not_started' as const,
+              catalog_course_id: r.course.id,
+            }));
+        } catch {
+          // fall through to static fallback below
+        }
+      }
+
+      // Fallback: static template by name
+      if (coursesToInsert.length === 0) {
+        const tmpl = bthPrograms.find(p => p.name === selectedOption.name)
+          ?? (selectedOption.staticIndex != null ? bthPrograms[selectedOption.staticIndex] : null);
+        if (tmpl) {
+          coursesToInsert = tmpl.courses
+            .filter(c => c.year <= maxYear)
+            .map(c => ({
+              user_id: userId,
+              course_code: c.code,
+              course_name: c.name,
+              year: c.year,
+              hp: c.hp,
+              status: 'not_started' as const,
+            }));
+        }
+      }
 
       if (coursesToInsert.length > 0) {
         const { error: coursesError } = await supabase
@@ -114,22 +232,24 @@ export default function ProgramSetupPage({ userId, onComplete }: ProgramSetupPag
           </p>
         </div>
 
-        {selected !== null && startYear && (() => {
-          const program = bthPrograms[selected];
-          const totalHp = program.courses.reduce((s, c) => s + c.hp, 0);
+        {selectedOption && startYear && (() => {
           const est = estimateStudyYear(Number.parseInt(startYear, 10));
           const semesterLabel = est.semester === 1 ? 'HT' : 'VT';
           const studyYearLabel = est.uncertain ? est.label : `År ${est.year} (${semesterLabel})`;
           return (
             <Card className="mb-4 border-primary/40 bg-primary/5">
               <CardContent className="p-4 space-y-1">
-                <p className="text-sm font-semibold text-foreground">{program.name}</p>
+                <p className="text-sm font-semibold text-foreground">{selectedOption.name}</p>
                 <div className="text-xs text-muted-foreground grid grid-cols-2 gap-y-1">
-                  <span>Startår</span><span className="text-foreground text-right">{startYear}</span>
+                  <span>Startår</span><span className="text-foreground text-right">HT {startYear}</span>
                   <span>Uppskattat studieår</span>
                   <span className="text-foreground text-right">{studyYearLabel}</span>
-                  <span>Antal kurser</span><span className="text-foreground text-right">{program.courses.length}</span>
-                  <span>Totalt HP</span><span className="text-foreground text-right">{totalHp}</span>
+                  <span>Antal kurser</span>
+                  <span className="text-foreground text-right">{selectedOption.courseCount}</span>
+                  <span>Totalt HP</span>
+                  <span className="text-foreground text-right">
+                    {selectedOption.totalHp != null ? `${selectedOption.totalHp} HP` : '–'}
+                  </span>
                 </div>
               </CardContent>
             </Card>
@@ -147,38 +267,37 @@ export default function ProgramSetupPage({ userId, onComplete }: ProgramSetupPag
         </div>
 
         <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1 mb-4">
-          {filteredPrograms.map((program) => {
-            const originalIndex = bthPrograms.indexOf(program);
-            return (
-              <Card
-                key={program.name}
-                onClick={() => setSelected(originalIndex)}
-                className={`cursor-pointer transition-all hover:shadow-md ${
-                  selected === originalIndex ? 'ring-2 ring-primary bg-secondary' : ''
-                }`}
-              >
-                <CardContent className="p-4 flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-sm text-foreground">{program.name}</p>
-                    <p className="text-xs text-muted-foreground">{program.courses.length} kurser</p>
-                  </div>
-                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                    selected === originalIndex ? 'border-primary bg-primary' : 'border-muted-foreground'
-                  }`}>
-                    {selected === originalIndex && (
-                      <div className="w-2 h-2 rounded-full bg-primary-foreground" />
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+          {filtered.map((p) => (
+            <Card
+              key={p.key}
+              onClick={() => setSelected(p.key)}
+              className={`cursor-pointer transition-all hover:shadow-md ${
+                selected === p.key ? 'ring-2 ring-primary bg-secondary' : ''
+              }`}
+            >
+              <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-sm text-foreground">{p.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {p.courseCount} kurser{p.totalHp != null ? ` · ${p.totalHp} HP` : ''}
+                  </p>
+                </div>
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                  selected === p.key ? 'border-primary bg-primary' : 'border-muted-foreground'
+                }`}>
+                  {selected === p.key && (
+                    <div className="w-2 h-2 rounded-full bg-primary-foreground" />
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
 
         <Button
           size="lg"
           onClick={handleContinue}
-          disabled={selected === null || !startYear || loading}
+          disabled={!selectedOption || !startYear || loading}
           className="w-full gap-2 text-base"
         >
           {loading ? 'Sparar...' : 'Fortsätt'} <ChevronRight className="h-4 w-4" />
