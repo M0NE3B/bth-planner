@@ -74,6 +74,16 @@ export default function CourseCatalogTab() {
     return Array.from(s).sort();
   }, [courses]);
 
+  const stats = useMemo(() => {
+    const total = courses.length;
+    const active = courses.filter((c) => c.active).length;
+    const archived = total - active;
+    const missingHp = courses.filter((c) => !Number(c.hp)).length;
+    const missingSubject = courses.filter((c) => !(c.subject_area ?? '').trim()).length;
+    const withPrereqs = courses.filter((c) => c.prereq_count > 0).length;
+    return { total, active, archived, missingHp, missingSubject, withPrereqs };
+  }, [courses]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return courses.filter((c) => {
@@ -82,6 +92,13 @@ export default function CourseCatalogTab() {
       if (subject !== 'all' && (c.subject_area ?? '') !== subject) return false;
       if (onlyMissingHp && Number(c.hp) > 0) return false;
       if (onlyMissingSubject && (c.subject_area ?? '').trim()) return false;
+      if (prereqStatus !== 'all') {
+        const manual = manualByCourse.get(c.id) ?? 0;
+        const structured = c.prereq_count - manual;
+        if (prereqStatus === 'structured' && structured <= 0) return false;
+        if (prereqStatus === 'manual' && (c.prereq_count === 0 || structured > 0)) return false;
+        if (prereqStatus === 'none' && c.prereq_count > 0) return false;
+      }
       if (!q) return true;
       return (
         c.course_code.toLowerCase().includes(q) ||
@@ -89,7 +106,7 @@ export default function CourseCatalogTab() {
         (c.subject_area ?? '').toLowerCase().includes(q)
       );
     });
-  }, [courses, search, status, subject, onlyMissingHp, onlyMissingSubject]);
+  }, [courses, search, status, subject, onlyMissingHp, onlyMissingSubject, prereqStatus, manualByCourse]);
 
   const allCourses = useMemo(
     () => courses.map((c) => ({ id: c.id, course_code: c.course_code, course_name: c.course_name })),
