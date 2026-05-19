@@ -450,6 +450,7 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
     const hp = getEventHp(event);
     const course = event.course_code;
     const blocking = getBlockingLabel(course);
+    const hpUnlock = getHpUnlockLabels(course);
 
     if (h < 0) return course ? `Försenad deadline i ${course}` : 'Försenad deadline';
 
