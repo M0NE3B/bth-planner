@@ -216,8 +216,6 @@ export default function SettingsPage({ userId, email, programName, startYear, on
       </Card>
 
       <FeedbackDialog userId={userId} open={feedbackOpen} onOpenChange={setFeedbackOpen} />
-        </CardContent>
-      </Card>
 
       {/* Reset confirmation */}
       <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
