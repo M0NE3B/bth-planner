@@ -421,6 +421,29 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
       : `Låser upp ${fmtC(first.code)}${more}`;
   };
 
+  // HP-baserad unlock-etikett (typade HP-krav). Returnerar kort + detaljerad lista.
+  const getHpUnlockLabels = (courseCode: string | null): { short: string | null; details: string[] } => {
+    if (!courseCode) return { short: null, details: [] };
+    const entries = unlockMap.get(courseCode);
+    if (!entries || entries.length === 0) return { short: null, details: [] };
+    const blocked = new Set((blockingMap.get(courseCode) || []).map(b => b.code));
+    const usable = entries.filter(e => !blocked.has(e.target));
+    if (usable.length === 0) return { short: null, details: [] };
+    // Rank: hp_in_course > hp_in_subject > total_hp, then earlier year first.
+    const kindRank = { hp_in_course: 0, hp_in_subject: 1, total_hp: 2 } as const;
+    usable.sort((a, b) =>
+      kindRank[a.kind] - kindRank[b.kind] || a.targetYear - b.targetYear,
+    );
+    const labelFor = (e: typeof usable[number]): string => {
+      if (e.kind === 'hp_in_course') return `Bidrar till HP-krav i ${fmtC(e.target)}`;
+      if (e.kind === 'hp_in_subject') return `Bidrar till HP-krav inom huvudområde för ${fmtC(e.target)}`;
+      return `Räknas mot totalt HP-krav för ${fmtC(e.target)}`;
+    };
+    const details = Array.from(new Set(usable.map(labelFor)));
+    const more = details.length > 1 ? ` (+${details.length - 1} till)` : '';
+    return { short: `${labelFor(usable[0])}${more}`, details };
+  };
+
   // Short, single-line reason for the card — matches ranking
   const getShortReason = (event: StudyEvent): string | null => {
     const h = hoursUntil(event);
