@@ -700,7 +700,7 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
                   <Badge variant="secondary">{TYPE_LABEL[selected.event_type] || selected.event_type}</Badge>
                   {selected.course_code && <Badge variant="outline">{selected.course_code}</Badge>}
                   {getEventHp(selected) > 0 && (
-                    <Badge variant="outline">{getEventHp(selected)} HP</Badge>
+                    <Badge variant="outline">{formatHp(getEventHp(selected))} HP</Badge>
                   )}
                   <Badge variant={selected.status === 'complete' ? 'default' : 'secondary'}>
                     {STATUS_LABEL[selected.status] || selected.status}
