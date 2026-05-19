@@ -209,6 +209,13 @@ export default function SettingsPage({ userId, email, programName, startYear, on
           >
             <Trash2 className="h-4 w-4" /> Radera konto
           </Button>
+          <Button variant="outline" onClick={() => setFeedbackOpen(true)} className="w-full gap-2 justify-start">
+            <MessageSquare className="h-4 w-4" /> Skicka feedback
+          </Button>
+        </CardContent>
+      </Card>
+
+      <FeedbackDialog userId={userId} open={feedbackOpen} onOpenChange={setFeedbackOpen} />
         </CardContent>
       </Card>
 
