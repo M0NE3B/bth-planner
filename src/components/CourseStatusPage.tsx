@@ -501,6 +501,7 @@ interface CourseCardProps {
   onToggleSubtask: (s: Subtask) => void;
   onDeleteSubtask: (s: Subtask) => void;
   onAddSubtask: (courseId: string) => void;
+  onSetSubtaskDate: (s: Subtask, date: string) => void;
 }
 
 function CourseCard(props: CourseCardProps) {
@@ -510,7 +511,7 @@ function CourseCard(props: CourseCardProps) {
     newText, newDate, newHp, newType,
     onUpdateStatus, onDelete, onToggleExpanded,
     setNewText, setNewDate, setNewHp, setNewType,
-    onToggleSubtask, onDeleteSubtask, onAddSubtask,
+    onToggleSubtask, onDeleteSubtask, onAddSubtask, onSetSubtaskDate,
   } = props;
 
   const completedSubs = courseSubtasks.filter(s => s.completed).length;
