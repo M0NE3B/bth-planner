@@ -492,7 +492,25 @@ function CourseCard(props: CourseCardProps) {
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex-1 min-w-[180px]">
             <div className="flex items-center gap-2 flex-wrap text-sm">
-              <span className="font-mono font-semibold text-foreground">{course.course_code}</span>
+              <CourseInfoPopover
+                info={{
+                  code: course.course_code,
+                  name: course.course_name,
+                  hp: course.hp,
+                  subject: subjectLabel,
+                  status: course.status,
+                  originalRequirementText: originalReqText ?? undefined,
+                  unlocksInPlan: blocks ?? [],
+                  nameOf: (c) => courseNameMap.get(c),
+                }}
+              >
+                <button
+                  type="button"
+                  className="font-mono font-semibold text-foreground hover:text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+                >
+                  {course.course_code}
+                </button>
+              </CourseInfoPopover>
               {subjectLabel && (
                 <>
                   <span className="text-muted-foreground" aria-hidden="true">·</span>
@@ -515,6 +533,7 @@ function CourseCard(props: CourseCardProps) {
             </div>
             <p className="text-sm text-muted-foreground">{course.course_name}</p>
           </div>
+
           <div className="flex items-center gap-2">
             <Select value={course.status} onValueChange={(v) => onUpdateStatus(course.id, v as CourseStatus)}>
               <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
