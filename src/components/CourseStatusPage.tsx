@@ -266,9 +266,10 @@ function PrereqInfo({
           {hasReqs ? (
             <ul className="space-y-0.5 pl-4">
               {requirementResults.map((r, i) => {
-                const colorClass = r.fulfilled
-                  ? 'text-success'
-                  : r.severity === 'soft' ? 'text-warning' : 'text-warning font-medium';
+                let colorClass: string;
+                if (r.fulfilled) colorClass = 'text-success';
+                else if (r.severity === 'soft') colorClass = 'text-warning';
+                else colorClass = 'text-warning font-medium';
                 return (
                   <li key={`${r.message}-${i}`} className={colorClass}>
                     {r.fulfilled ? '✓ ' : '• '}{r.message}
