@@ -823,6 +823,64 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
     fetchData();
   }, [userId]);
 
+  // Load elective candidates for the student's program from the catalog
+  useEffect(() => {
+    if (!programName) { setElectives([]); return; }
+    let cancelled = false;
+    (async () => {
+      const prog = await supabase.from('programs_catalog' as never)
+        .select('id').eq('name', programName).eq('active', true).maybeSingle();
+      if (cancelled || !prog.data) { setElectives([]); return; }
+      const programId = (prog.data as { id: string }).id;
+      const pc = await supabase.from('program_courses' as never)
+        .select('year, mandatory, course:courses_catalog(id, course_code, course_name, hp, subject_area)')
+        .eq('program_id', programId)
+        .eq('mandatory', false)
+        .order('year', { ascending: true });
+      if (cancelled || !pc.data) { setElectives([]); return; }
+      type Row = { year: number; mandatory: boolean; course: { id: string; course_code: string; course_name: string; hp: number; subject_area: string | null } | null };
+      const list: ElectiveOption[] = ((pc.data as unknown) as Row[])
+        .filter(r => r.course)
+        .map(r => ({
+          id: r.course!.id,
+          code: r.course!.course_code,
+          name: r.course!.course_name,
+          hp: Number(r.course!.hp) || 0,
+          year: r.year,
+          subject: r.course!.subject_area,
+        }));
+      setElectives(list);
+    })();
+    return () => { cancelled = true; };
+  }, [programName]);
+
+  const electivesByYear = useMemo(() => {
+    const userCodes = new Set(courses.map(c => c.course_code));
+    const m = new Map<number, ElectiveOption[]>();
+    for (const e of electives) {
+      if (userCodes.has(e.code)) continue;
+      const arr = m.get(e.year) || [];
+      if (!arr.some(x => x.code === e.code)) arr.push(e);
+      m.set(e.year, arr);
+    }
+    return m;
+  }, [electives, courses]);
+
+  const addElective = async (e: ElectiveOption) => {
+    const { data, error } = await supabase.from('user_courses').insert({
+      user_id: userId, course_code: e.code, course_name: e.name,
+      hp: e.hp, year: e.year, status: 'not_started', catalog_course_id: e.id,
+    }).select().single();
+    if (error) { toast.error('Kunde inte lägga till valbar kurs'); return; }
+    if (data) {
+      const nc = data as UserCourse;
+      setCourses(prev => [...prev, nc]);
+      initialStatusesRef.current.set(nc.id, nc.status);
+      toast.success(`${e.name} tillagd som valbar kurs i år ${e.year}`);
+    }
+  };
+
+
   const fetchData = async () => {
     const [coursesRes, subtasksRes] = await Promise.all([
       supabase.from('user_courses').select('*').eq('user_id', userId)
