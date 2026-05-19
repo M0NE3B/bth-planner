@@ -704,7 +704,19 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
     return bthPrograms.find(p => p.name === programName) || null;
   }, [programName]);
 
-  const allBthCourses = useMemo(() => buildAllBthCourses(), []);
+  const catalogForList = useCatalogPrereqs();
+  const allBthCourses = useMemo(() => {
+    const map = new Map<string, { code: string; name: string; hp: number; subject?: string }>();
+    // Catalog first (authoritative)
+    for (const [code, c] of catalogForList.courseByCode) {
+      map.set(code, { code: c.course_code, name: c.course_name, hp: Number(c.hp), subject: c.subject_area ?? undefined });
+    }
+    // Then fall back to legacy static program data
+    for (const c of buildAllBthCourses()) {
+      if (!map.has(c.code)) map.set(c.code, c);
+    }
+    return Array.from(map.values()).sort((a, b) => a.code.localeCompare(b.code));
+  }, [catalogForList.courseByCode]);
 
   const availableCourses = useMemo(() => {
     const userCodes = new Set(courses.map(c => c.course_code));
