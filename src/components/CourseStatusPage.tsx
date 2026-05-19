@@ -243,7 +243,7 @@ function PrereqInfo({
 
   return (
     <div className="mt-2 pt-2 border-t border-border/50 space-y-1.5">
-      {hasReqs && (
+      {(hasReqs || hasOriginal) && (
         <div className="text-xs">
           <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
             <Lock className="h-3 w-3 shrink-0" />
@@ -263,21 +263,25 @@ function PrereqInfo({
               </TooltipContent>
             </Tooltip>
           </div>
-          <ul className="space-y-0.5 pl-4">
-            {requirementResults.map((r, i) => {
-              const colorClass = r.fulfilled
-                ? 'text-success'
-                : r.severity === 'soft' ? 'text-warning' : 'text-warning font-medium';
-              return (
-                <li key={i} className={colorClass}>
-                  {r.fulfilled ? '✓ ' : '• '}{r.message}
-                  {r.progress && !r.fulfilled && (
-                    <span className="text-muted-foreground"> ({r.progress.current.toFixed(0)}/{r.progress.required} HP)</span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+          {hasReqs ? (
+            <ul className="space-y-0.5 pl-4">
+              {requirementResults.map((r, i) => {
+                const colorClass = r.fulfilled
+                  ? 'text-success'
+                  : r.severity === 'soft' ? 'text-warning' : 'text-warning font-medium';
+                return (
+                  <li key={i} className={colorClass}>
+                    {r.fulfilled ? '✓ ' : '• '}{r.message}
+                    {r.progress && !r.fulfilled && (
+                      <span className="text-muted-foreground"> ({r.progress.current.toFixed(0)}/{r.progress.required} HP)</span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="pl-4 text-muted-foreground leading-snug">{originalText}</p>
+          )}
         </div>
       )}
       {hasBlocks && (
