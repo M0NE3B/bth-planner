@@ -17,6 +17,7 @@ import { bthPrograms } from '@/lib/programs';
 import RiskOverview from '@/components/RiskOverview';
 import EventFormFields from '@/components/EventFormFields';
 import { EVENT_TYPE_LABEL as TYPE_LABEL, EVENT_STATUS_LABEL as STATUS_LABEL, COURSE_STATUS_LABEL, parseHpInput } from '@/lib/events';
+import { useCatalogPrereqs } from '@/lib/useCatalogPrereqs';
 
 interface DashboardProps {
   userId: string;
@@ -95,21 +96,34 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
     setLoading(false);
   };
 
-  // Build map: courseCode -> array of courses it blocks (i.e. courses that list it as prerequisite)
+  const catalog = useCatalogPrereqs();
+
+  // Build map: courseCode -> array of courses it blocks. Catalog first, fallback to template.
   const blockingMap = useMemo(() => {
-    const map = new Map<string, { code: string; year: number; semester: 'HT' | 'VT' }[]>();
+    const map = new Map<string, { code: string; year: number; semester?: 'HT' | 'VT' }[]>();
+    // Catalog
+    if (catalog.blocksByCode.size > 0) {
+      const yearByCode = new Map(courses.filter(c => c.course_code).map(c => [c.course_code as string, c.year]));
+      for (const [pre, targets] of catalog.blocksByCode) {
+        for (const code of targets) {
+          const arr = map.get(pre) || [];
+          arr.push({ code, year: yearByCode.get(code) ?? 99 });
+          map.set(pre, arr);
+        }
+      }
+    }
     if (!programName) return map;
     const program = bthPrograms.find(p => p.name === programName);
     if (!program) return map;
     program.courses.forEach(c => {
       (c.prerequisites || []).forEach(pre => {
         const arr = map.get(pre) || [];
-        arr.push({ code: c.code, year: c.year, semester: c.semester });
+        if (!arr.some(x => x.code === c.code)) arr.push({ code: c.code, year: c.year, semester: c.semester });
         map.set(pre, arr);
       });
     });
     return map;
-  }, [programName]);
+  }, [programName, catalog, courses]);
 
   // Avoid double counting: completed courses count full HP; for non-completed
   // courses, count completed delmoment HP as "partly" (capped by course HP).
@@ -181,9 +195,16 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
     // HP / scope — capped so it can't flip exam vs lab at same deadline
     const hp = getHpForEvent(event);
     score += Math.min(hp * 2, 12);
-    // Blocking course bonus
-    if (event.course_code && (blockingMap.get(event.course_code)?.length || 0) > 0) {
-      score += 8;
+    // Blocking course bonus — higher when the blocked course is current/upcoming
+    if (event.course_code) {
+      const blocked = blockingMap.get(event.course_code) || [];
+      if (blocked.length > 0) {
+        const minYear = Math.min(...blocked.map(b => b.year));
+        const currentYear = Math.min(...courses.filter(c => c.status !== 'completed').map(c => c.year), 99);
+        if (minYear <= currentYear) score += 16; // current/already-blocked
+        else if (minYear === currentYear + 1) score += 10; // upcoming
+        else score += 4; // future
+      }
     }
     // Linked subtask not done
     const sub = subtasks.find(s => s.event_id === event.id);
@@ -310,19 +331,23 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
   const hoursUntil = (event: StudyEvent) =>
     differenceInHours(new Date(`${event.due_date}T${event.due_time || '23:59'}`), now);
 
-  // Build short label for blocking, e.g. "Spärrar MA1423" or "Spärrar MA1423 som kommer snart"
+  // Build short label for blocking, e.g. "Hjälper dig uppfylla förkunskap till X"
+  const codeName = (code: string) => catalog.codeToName.get(code) || courses.find(c => c.course_code === code)?.course_name || undefined;
+  const fmtC = (code: string) => {
+    const n = codeName(code);
+    return n ? `${n} (${code})` : code;
+  };
   const getBlockingLabel = (courseCode: string | null): string | null => {
     if (!courseCode) return null;
     const blocked = blockingMap.get(courseCode);
     if (!blocked || blocked.length === 0) return null;
     const first = blocked[0];
-    // "soon" if blocked course belongs to next year/term relative to user's current courses
     const userCourse = courses.find(c => c.course_code === courseCode);
     const soon = userCourse ? first.year >= userCourse.year : false;
     const more = blocked.length > 1 ? ` (+${blocked.length - 1} till)` : '';
     return soon
-      ? `Spärrar ${first.code} som kommer snart${more}`
-      : `Spärrar ${first.code}${more}`;
+      ? `Hjälper dig uppfylla förkunskap till ${fmtC(first.code)}${more}`
+      : `Låser upp ${fmtC(first.code)}${more}`;
   };
 
   // Short, single-line reason for the card — matches ranking
@@ -537,13 +562,22 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
           course_name: c.course_name,
           year: c.year,
           status: c.status,
+          hp: c.hp,
         })).filter(c => c.course_code)}
         programName={programName}
         startYear={startYear ?? null}
         compact
         upcomingEventsCount={upcomingEvents.length}
         unfinishedSubtasksCount={subtasks.filter(s => !s.completed).length}
+        catalog={catalog}
+        subtasks={subtasks.map(s => ({
+          course_id: s.course_id,
+          course_code: courses.find(c => c.id === s.course_id)?.course_code,
+          completed: s.completed,
+          hp: Number(s.hp) || 0,
+        }))}
       />
+
 
       {/* Detail modal */}
       <MetricDetailDialog
