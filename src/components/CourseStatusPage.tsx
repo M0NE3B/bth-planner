@@ -21,7 +21,8 @@ import {
   resolveSubject, normalizeRequirements, evaluateCourseRequirements,
   type CourseRequirement, type RequirementResult,
 } from '@/lib/prerequisites';
-import { useCatalogPrereqs } from '@/lib/useCatalogPrereqs';
+import { useCatalogPrereqs, isGymnasiumRequirement, cleanOriginalText, filterPlanBlocks } from '@/lib/useCatalogPrereqs';
+import CourseInfoPopover from '@/components/CourseInfoPopover';
 
 const PREREQ_TOOLTIP =
   'Förkunskapskrav kan betyda olika saker: en kurs kan behöva vara avklarad, påbörjad/genomgången, eller kräva ett visst antal HP inom en kurs eller ett huvudområde.';
