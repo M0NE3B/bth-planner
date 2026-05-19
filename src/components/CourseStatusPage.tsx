@@ -270,7 +270,7 @@ function PrereqInfo({
                   ? 'text-success'
                   : r.severity === 'soft' ? 'text-warning' : 'text-warning font-medium';
                 return (
-                  <li key={i} className={colorClass}>
+                  <li key={`${r.message}-${i}`} className={colorClass}>
                     {r.fulfilled ? '✓ ' : '• '}{r.message}
                     {r.progress && !r.fulfilled && (
                       <span className="text-muted-foreground"> ({r.progress.current.toFixed(0)}/{r.progress.required} HP)</span>
