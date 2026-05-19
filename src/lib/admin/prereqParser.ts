@@ -130,7 +130,7 @@ function parseFragment(fragment: string, idx: CourseIndex): ParseFragmentOut {
   if (lvl) {
     rules.push({
       requirement_type: 'completed_hp_at_level',
-      required_hp: parseFloat(lvl[1].replace(',', '.')),
+      required_hp: Number.parseFloat(lvl[1].replace(',', '.')),
       required_level: lvl[2].startsWith('avanc') ? 'advanced' : 'foundation',
       original_text: original,
     });
