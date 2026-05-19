@@ -127,8 +127,17 @@ export default function CourseCatalogTab() {
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-col md:flex-row md:items-end gap-2">
-        <div className="relative flex-1">
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-2 text-sm">
+        <StatBox label="Totalt" value={stats.total} />
+        <StatBox label="Aktiva" value={stats.active} />
+        <StatBox label="Arkiverade" value={stats.archived} />
+        <StatBox label="Saknar HP" value={stats.missingHp} />
+        <StatBox label="Saknar område" value={stats.missingSubject} />
+        <StatBox label="Med förkrav" value={stats.withPrereqs} />
+      </div>
+
+      <div className="flex flex-col md:flex-row md:items-end gap-2 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Sök kod, namn eller huvudområde…"
@@ -155,6 +164,18 @@ export default function CourseCatalogTab() {
               <SelectItem value="active">Aktiva</SelectItem>
               <SelectItem value="archived">Arkiverade</SelectItem>
               <SelectItem value="all">Alla</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="w-full md:w-44">
+          <Label className="text-xs">Förkrav</Label>
+          <Select value={prereqStatus} onValueChange={(v) => setPrereqStatus(v as typeof prereqStatus)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Alla</SelectItem>
+              <SelectItem value="structured">Strukturerade</SelectItem>
+              <SelectItem value="manual">Endast manuella</SelectItem>
+              <SelectItem value="none">Inga förkrav</SelectItem>
             </SelectContent>
           </Select>
         </div>
