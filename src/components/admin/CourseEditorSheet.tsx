@@ -203,8 +203,11 @@ export default function CourseEditorSheet({ open, course, allCourses, onClose, o
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label htmlFor="subj">Huvudområde</Label>
-              <Input id="subj" placeholder="t.ex. Matematik" value={form.subject_area}
+              <Input id="subj" placeholder="t.ex. Matematik" value={form.subject_area} list="subject-suggestions"
                 onChange={(e) => setForm({ ...form, subject_area: e.target.value })} />
+              <datalist id="subject-suggestions">
+                {subjects.map((s) => <option key={s} value={s} />)}
+              </datalist>
             </div>
             <div>
               <Label htmlFor="lvl">Nivå</Label>
