@@ -1,8 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Download } from 'lucide-react';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Download, Upload } from 'lucide-react';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  importFromStaticTemplates, previewStaticImport, type ImportPreview, type ImportProgress,
+} from '@/lib/admin';
 import JsonImportCard from './JsonImportCard';
 
 interface Stats {
@@ -16,6 +24,10 @@ interface Stats {
 
 export default function ImportTab() {
   const [stats, setStats] = useState<Stats | null>(null);
+  const [preview] = useState<ImportPreview>(() => previewStaticImport());
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState<ImportProgress | null>(null);
 
   const loadStats = async () => {
     const [c, p, pc, pr] = await Promise.all([
@@ -37,6 +49,25 @@ export default function ImportTab() {
   };
 
   useEffect(() => { void loadStats(); }, []);
+
+  const handleImport = async () => {
+    setConfirmOpen(false);
+    setRunning(true);
+    setProgress(null);
+    try {
+      const result = await importFromStaticTemplates(undefined, (p) => setProgress(p));
+      toast.success(
+        `Importerat: ${result.programs} program, ${result.uniqueCourses} kurser, ${result.programCourseLinks} länkar, ${result.prerequisites} förkunskaper`,
+      );
+      void loadStats();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'okänt fel';
+      toast.error(`Importen misslyckades: ${msg}`);
+    } finally {
+      setRunning(false);
+      setProgress(null);
+    }
+  };
 
   const handleExport = async () => {
     const [c, p, pc, pr] = await Promise.all([
@@ -63,7 +94,7 @@ export default function ImportTab() {
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Katalogstatistik</CardTitle>
+          <CardTitle className="text-base">Statistik</CardTitle>
         </CardHeader>
         <CardContent>
           {!stats ? <p className="text-sm text-muted-foreground">Laddar…</p> : (
@@ -76,16 +107,61 @@ export default function ImportTab() {
               <Stat label="Originaltext utan struktur" value={stats.unstructured} />
             </div>
           )}
-          <div className="mt-3">
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Importera från statiska mallar</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Läser alla program från <code className="text-xs">src/lib/programs/*</code> och upsertar till databasen.
+            Operationen är idempotent — kan köras flera gånger utan att skapa dubletter.
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+            <Stat label="Program" value={preview.programs} />
+            <Stat label="Unika kurser" value={preview.uniqueCourses} />
+            <Stat label="Kurslänkar" value={preview.programCourseLinks} />
+            <Stat label="Förkunskaper" value={preview.prerequisites} />
+          </div>
+          {progress && (
+            <p className="text-xs text-muted-foreground italic">
+              {progress.step} ({progress.done}/{progress.total})
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => setConfirmOpen(true)} disabled={running} className="gap-1">
+              <Upload className="h-4 w-4" /> {running ? 'Importerar…' : 'Importera nu'}
+            </Button>
             <Button variant="outline" onClick={handleExport} className="gap-1">
-              <Download className="h-4 w-4" /> Exportera hela katalogen som JSON
+              <Download className="h-4 w-4" /> Exportera JSON
             </Button>
           </div>
         </CardContent>
       </Card>
 
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Importera från statiska mallar?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {preview.programs} program och {preview.uniqueCourses} unika kurser kommer att upsertas.
+              Befintliga rader med samma kurskod/programnamn uppdateras. Förkunskapsrader ersätts per kurs.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Avbryt</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); void handleImport(); }}>
+              Starta import
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <JsonImportCard />
     </div>
+
   );
 }
 
