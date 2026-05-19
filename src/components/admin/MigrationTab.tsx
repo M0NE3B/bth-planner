@@ -106,42 +106,15 @@ export default function MigrationTab() {
         <div className="flex items-start gap-2 text-sm">
           <Users className="h-4 w-4 mt-0.5 text-primary shrink-0" />
           <div className="space-y-1 flex-1">
-            <p className="font-medium">Synka befintliga användare</p>
+            <p className="font-medium">Automatisk användarsynk</p>
             <p className="text-muted-foreground text-xs">
-              Mappar gamla programnamn till aktuell katalog, kopplar kurser via kurskod,
-              lägger till saknade obligatoriska kurser och tar bort enbart oanvända kopplingar
-              (status “ej påbörjad”, inga händelser, inga delmoment). Statusar, HP och kalender bevaras.
+              Befintliga användare migreras automatiskt i bakgrunden vid inloggning:
+              programnamn mappas till nya katalogen, kurser kopplas via kurskod,
+              saknade obligatoriska kurser läggs till och endast oanvända gamla kopplingar tas bort.
+              Statusar, HP, delmoment och kalenderhändelser bevaras. Ingen åtgärd krävs.
             </p>
           </div>
-          <Button
-            size="sm"
-            onClick={async () => {
-              setSyncing(true);
-              try {
-                const res = await runExistingUsersSync();
-                setLastSync(res);
-                toast.success(
-                  `Synk klar: ${res.profiles_remapped} profiler, +${res.mandatory_seeded} kurser, ${res.orphans_removed} rensade`
-                );
-                await load();
-              } catch (e) {
-                toast.error(`Synk misslyckades: ${e instanceof Error ? e.message : ''}`);
-              } finally { setSyncing(false); }
-            }}
-            disabled={syncing}
-            className="gap-1"
-          >
-            <Play className="h-3.5 w-3.5" /> {syncing ? 'Synkar…' : 'Kör synk'}
-          </Button>
         </div>
-        {lastSync && (
-          <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-            <Stat label="Profiler omappade" value={lastSync.profiles_remapped} />
-            <Stat label="Nya katalog-länkar" value={lastSync.catalog_links_added} />
-            <Stat label="Obligatoriska tillagda" value={lastSync.mandatory_seeded} />
-            <Stat label="Oanvända borttagna" value={lastSync.orphans_removed} />
-          </div>
-        )}
       </div>
 
       <Card className={unmatched > 0 ? 'border-destructive/40' : ''}>
