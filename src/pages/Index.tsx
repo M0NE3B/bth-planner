@@ -59,9 +59,10 @@ export default function Index() {
   }, []);
 
   const checkProfile = async (userId: string) => {
-    // Self-heal: remap legacy program_name strings to the canonical catalog name
-    // so existing users automatically get the new program structure on login.
-    try { await supabase.rpc('remap_my_profile_program' as never); } catch { /* non-fatal */ }
+    // Self-heal in background: migrate legacy program/courses to the new catalog,
+    // link existing user_courses by code, seed missing mandatory, drop unused orphans.
+    // Idempotent — only runs once per user (guarded by profiles.catalog_migrated_at).
+    try { await supabase.rpc('auto_sync_my_account_to_catalog' as never); } catch { /* non-fatal */ }
 
     const { data } = await supabase
       .from('profiles')
