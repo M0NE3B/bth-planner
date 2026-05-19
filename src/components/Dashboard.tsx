@@ -459,6 +459,7 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
       return course ? `Tenta i ${course}` : 'Tenta';
     }
     if (blocking) return blocking;
+    if (hpUnlock.short) return hpUnlock.short;
     if (event.event_type === 'assignment') {
       if (h < 72) return course ? `Uppgift med deadline snart i ${course}` : 'Uppgift med deadline snart';
       if (hp >= 3) return course ? `Större uppgift (${hp} HP) i ${course}` : `Större uppgift (${hp} HP)`;
