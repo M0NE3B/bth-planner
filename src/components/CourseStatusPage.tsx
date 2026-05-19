@@ -412,12 +412,11 @@ function NewSubtaskForm({
           placeholder="Datum"
         />
         <Input
-          type="number"
+          type="text"
+          inputMode="decimal"
           placeholder="HP"
-          step="0.5"
-          min="0"
           value={hp}
-          onChange={e => setHp(e.target.value)}
+          onChange={e => setHp(e.target.value.replace(',', '.'))}
           className="h-8 text-sm w-20"
         />
         <Button size="sm" variant="default" className="h-8 px-3 shrink-0 gap-1"
