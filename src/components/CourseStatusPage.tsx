@@ -660,6 +660,7 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
   const navigate = useNavigate();
   const [courses, setCourses] = useState<UserCourse[]>([]);
   const initialStatusesRef = useRef<Map<string, CourseStatus>>(new Map());
+  const dismissedCodesRef = useRef<Set<string>>(new Set());
   const [subtasks, setSubtasks] = useState<Subtask[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
