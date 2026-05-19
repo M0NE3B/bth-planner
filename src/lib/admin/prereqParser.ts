@@ -118,7 +118,7 @@ function parseFragment(fragment: string, idx: CourseIndex): ParseFragmentOut {
   const lower = original.toLowerCase();
 
   // Skip noise fragments that are not actual requirements.
-  if (/^(\s|för|och|samt|dessutom|kursen|krävs|krav|i de\s+\d+\s+hp)$/i.test(original)) {
+  if (/^(?:\s|för|och|samt|dessutom|kursen|krävs|krav|i de \d{1,4} hp)$/i.test(original)) {
     return { rules, consumed: true };
   }
 
@@ -126,7 +126,7 @@ function parseFragment(fragment: string, idx: CourseIndex): ParseFragmentOut {
   const codes = Array.from(original.matchAll(COURSE_CODE_RE)).map((m) => m[1].toUpperCase());
 
   // ----- 2. Completed HP at advanced/foundation level -----
-  const lvl = lower.match(/minst\s+([\d,.]+)\s*hp\s+p[åa]\s+(avancerad|grundl[äa]ggande)\s+niv[åa]/);
+  const lvl = lower.match(/minst[ \t]([\d,.]{1,20})[ \t]?hp[ \t]p[åa][ \t](avancerad|grundl[äa]ggande)[ \t]niv[åa]/);
   if (lvl) {
     rules.push({
       requirement_type: 'completed_hp_at_level',
@@ -139,7 +139,7 @@ function parseFragment(fragment: string, idx: CourseIndex): ParseFragmentOut {
 
   // ----- 3. HP from a civil engineering program group -----
   const prog = lower.match(
-    /(\d+)\s*hp\s+(?:ska\s+vara\s+)?fr[åa]n\s+ett\s+civilingenj[öo]rsprogram\s+i\s+([^.;]+)/,
+    /(\d{1,4})[ \t]?hp[ \t](?:ska[ \t]vara[ \t])?fr[åa]n[ \t]ett[ \t]civilingenj[öo]rsprogram[ \t]i[ \t]([^.;]{1,200})/,
   );
   if (prog) {
     const groups = splitList(prog[2])
@@ -156,9 +156,9 @@ function parseFragment(fragment: string, idx: CourseIndex): ParseFragmentOut {
   }
 
   // ----- 4. HP inom huvudområde X -----
-  const subj = lower.match(/minst\s+(\d+)\s*hp\s+inom\s+(?:huvudomr[åa]det?\s+)?([\wåäö ]+)/);
+  const subj = lower.match(/minst[ \t](\d{1,4})[ \t]?hp[ \t]inom[ \t](?:huvudomr[åa]det?[ \t])?([\wåäö ]{1,80})/);
   if (subj) {
-    const wordList = subj[2].trim().split(/\s+/);
+    const wordList = subj[2].trim().split(/[ \t]+/);
     // take the first 1-3 words as subject candidate
     const candidate = wordList.slice(0, 3).join(' ');
     const hit = SUBJECT_KEYWORDS.find((k) => candidate.startsWith(k.split(' ')[0]));
@@ -175,18 +175,16 @@ function parseFragment(fragment: string, idx: CourseIndex): ParseFragmentOut {
 
   // ----- 5. Genomgången/påbörjad kurs (optionally with HP threshold) -----
   const att = lower.match(
-    /genomg[åa]ng(?:en|na)\s+kurs(?:er)?\s*(?:om\s+minst\s+([\d,.]+)\s*hp\s+i\s+)?([^,;.]+)/,
+    /genomg[åa]ng(?:en|na)[ \t]kurs(?:er)?[ \t]?(?:om[ \t]minst[ \t]([\d,.]{1,20})[ \t]?hp[ \t]i[ \t])?([^,;.]{1,200})/,
   );
   if (att) {
     const hp = att[1] ? Number.parseFloat(att[1].replace(',', '.')) : null;
     // try each item in the list
     const phrases = splitList(att[2]);
     let matchedAny = false;
+    const firstCode = codes.find((code) => idx.byCode.has(code));
     for (const phrase of phrases) {
-      const c =
-        codes.find((code) => idx.byCode.has(code))
-          ? idx.byCode.get(codes.find((code) => idx.byCode.has(code))!)!
-          : resolveCourseByName(phrase, idx);
+      const c = firstCode ? idx.byCode.get(firstCode)! : resolveCourseByName(phrase, idx);
       if (c) {
         matchedAny = true;
         rules.push({
@@ -212,12 +210,12 @@ function parseFragment(fragment: string, idx: CourseIndex): ParseFragmentOut {
   }
 
   // ----- 6. Avklarad kurs (explicit code or name) -----
-  const compCode = original.match(/avklarad(?:e|a)?\s+kurs(?:er)?\s+([^.;]+?)(?:\s+ska\s+vara\s+avklarade?)?[.;]?$/i);
+  const compCode = original.match(/avklarad(?:e|a)?[ \t]kurs(?:er)?[ \t]([^.;]{1,200}?)(?:[ \t]ska[ \t]vara[ \t]avklarade?)?[.;]?$/i);
   if (compCode || codes.length > 0) {
     const phrases = compCode ? splitList(compCode[1]) : codes;
     let matchedAny = false;
     for (const phrase of phrases) {
-      const codeMatch = phrase.toUpperCase().match(/[A-Z]{2}\d{3,4}/)?.[0];
+      const codeMatch = /[A-Z]{2}\d{3,4}/.exec(phrase.toUpperCase())?.[0];
       const c = codeMatch ? idx.byCode.get(codeMatch) : resolveCourseByName(phrase, idx);
       if (c) {
         matchedAny = true;
@@ -232,7 +230,7 @@ function parseFragment(fragment: string, idx: CourseIndex): ParseFragmentOut {
   }
 
   // ----- 7. Minst X HP i <course name>  (completed_hp_in_course / group) -----
-  const hpIn = lower.match(/minst\s+([\d,.]+)\s*hp\s+(?:i|av)\s+([^,.;]+)/);
+  const hpIn = lower.match(/minst[ \t]([\d,.]{1,20})[ \t]?hp[ \t](?:i|av)[ \t]([^,.;]{1,200})/);
   if (hpIn) {
     const hp = Number.parseFloat(hpIn[1].replace(',', '.'));
     const phrase = hpIn[2].trim();
