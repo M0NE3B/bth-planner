@@ -562,13 +562,22 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
           course_name: c.course_name,
           year: c.year,
           status: c.status,
+          hp: c.hp,
         })).filter(c => c.course_code)}
         programName={programName}
         startYear={startYear ?? null}
         compact
         upcomingEventsCount={upcomingEvents.length}
         unfinishedSubtasksCount={subtasks.filter(s => !s.completed).length}
+        catalog={catalog}
+        subtasks={subtasks.map(s => ({
+          course_id: s.course_id,
+          course_code: courses.find(c => c.id === s.course_id)?.course_code,
+          completed: s.completed,
+          hp: Number(s.hp) || 0,
+        }))}
       />
+
 
       {/* Detail modal */}
       <MetricDetailDialog
