@@ -208,7 +208,7 @@ export default function NormalizePrereqsCard({ onApplied }: { onApplied?: () => 
                         {r.toAdd.length === 0 ? '–' : (
                           <ul className="space-y-0.5">
                             {r.toAdd.slice(0, 4).map((rule, i) => (
-                              <li key={i}>
+                              <li key={`${rule.requirement_type}-${i}`}>
                                 <Badge variant="secondary" className="mr-1">{rule.requirement_type}</Badge>
                                 {rule.required_hp ? `${rule.required_hp} HP ` : ''}
                                 {rule.required_subject_area ?? rule.course_group_name ?? ''}

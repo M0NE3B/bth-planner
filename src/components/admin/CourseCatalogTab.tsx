@@ -71,7 +71,7 @@ export default function CourseCatalogTab() {
   const subjects = useMemo(() => {
     const s = new Set<string>();
     for (const c of courses) if (c.subject_area?.trim()) s.add(c.subject_area.trim());
-    return Array.from(s).sort();
+    return Array.from(s).sort((a, b) => a.localeCompare(b));
   }, [courses]);
 
   const stats = useMemo(() => {

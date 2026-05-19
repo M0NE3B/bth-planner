@@ -130,7 +130,7 @@ function parseFragment(fragment: string, idx: CourseIndex): ParseFragmentOut {
   if (lvl) {
     rules.push({
       requirement_type: 'completed_hp_at_level',
-      required_hp: parseFloat(lvl[1].replace(',', '.')),
+      required_hp: Number.parseFloat(lvl[1].replace(',', '.')),
       required_level: lvl[2].startsWith('avanc') ? 'advanced' : 'foundation',
       original_text: original,
     });
@@ -147,7 +147,7 @@ function parseFragment(fragment: string, idx: CourseIndex): ParseFragmentOut {
       .filter((g) => PROGRAM_GROUP_WORDS.some((w) => g.includes(w) || w.includes(g)) || g.length > 3);
     rules.push({
       requirement_type: 'completed_hp_in_program_group',
-      required_hp: parseInt(prog[1], 10),
+      required_hp: Number.parseInt(prog[1], 10),
       allowed_program_groups: groups.length > 0 ? groups : null,
       manual_review: true,
       original_text: original,
@@ -165,7 +165,7 @@ function parseFragment(fragment: string, idx: CourseIndex): ParseFragmentOut {
     if (hit) {
       rules.push({
         requirement_type: 'completed_hp_in_subject',
-        required_hp: parseInt(subj[1], 10),
+        required_hp: Number.parseInt(subj[1], 10),
         required_subject_area: hit.charAt(0).toUpperCase() + hit.slice(1),
         original_text: original,
       });
@@ -178,7 +178,7 @@ function parseFragment(fragment: string, idx: CourseIndex): ParseFragmentOut {
     /genomg[åa]ng(?:en|na)\s+kurs(?:er)?\s*(?:om\s+minst\s+([\d,.]+)\s*hp\s+i\s+)?([^,;.]+)/,
   );
   if (att) {
-    const hp = att[1] ? parseFloat(att[1].replace(',', '.')) : null;
+    const hp = att[1] ? Number.parseFloat(att[1].replace(',', '.')) : null;
     // try each item in the list
     const phrases = splitList(att[2]);
     let matchedAny = false;
@@ -234,7 +234,7 @@ function parseFragment(fragment: string, idx: CourseIndex): ParseFragmentOut {
   // ----- 7. Minst X HP i <course name>  (completed_hp_in_course / group) -----
   const hpIn = lower.match(/minst\s+([\d,.]+)\s*hp\s+(?:i|av)\s+([^,.;]+)/);
   if (hpIn) {
-    const hp = parseFloat(hpIn[1].replace(',', '.'));
+    const hp = Number.parseFloat(hpIn[1].replace(',', '.'));
     const phrase = hpIn[2].trim();
     const c = resolveCourseByName(phrase, idx);
     if (c) {
@@ -262,7 +262,7 @@ function parseFragment(fragment: string, idx: CourseIndex): ParseFragmentOut {
   if (total && !/\bi\b/.test(lower) && !/inom/.test(lower) && !codes.length) {
     rules.push({
       requirement_type: 'completed_total_hp',
-      required_hp: parseInt(total[1], 10),
+      required_hp: Number.parseInt(total[1], 10),
       original_text: original,
     });
     return { rules, consumed: true };

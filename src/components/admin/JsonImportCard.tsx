@@ -215,7 +215,7 @@ function ErrorList({ title, items }: { title: string; items: string[] }) {
         <AlertTriangle className="h-3 w-3" /> {title} ({items.length})
       </h4>
       <ul className="text-xs space-y-0.5 max-h-40 overflow-auto">
-        {items.slice(0, 50).map((m, i) => <li key={i}>• {m}</li>)}
+        {items.slice(0, 50).map((m, i) => <li key={`${m}-${i}`}>• {m}</li>)}
         {items.length > 50 && <li className="text-muted-foreground">… {items.length - 50} fler</li>}
       </ul>
     </div>
@@ -229,7 +229,7 @@ function WarningList({ title, items }: { title: string; items: string[] }) {
         <AlertTriangle className="h-3 w-3" /> {title}
       </h4>
       <ul className="text-xs space-y-0.5 max-h-40 overflow-auto">
-        {items.slice(0, 50).map((m, i) => <li key={i}>• {m}</li>)}
+        {items.slice(0, 50).map((m, i) => <li key={`${m}-${i}`}>• {m}</li>)}
         {items.length > 50 && <li className="text-muted-foreground">… {items.length - 50} fler</li>}
       </ul>
     </div>

@@ -62,7 +62,7 @@ export default function CourseEditorSheet({ open, course, allCourses, onClose, o
         const v = (r as { subject_area: string | null }).subject_area?.trim();
         if (v) s.add(v);
       }
-      setSubjects(Array.from(s).sort());
+      setSubjects(Array.from(s).sort((a, b) => a.localeCompare(b)));
     });
     if (course) {
       // Load programs this course belongs to
