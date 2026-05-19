@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DateInput } from '@/components/ui/date-input';
 import { TimeInput } from '@/components/ui/time-input';
 import { EVENT_TYPE_OPTIONS, EVENT_STATUS_OPTIONS } from '@/lib/events';
+import CourseCodeCombobox from '@/components/CourseCodeCombobox';
 
 export interface EventFormFieldsCourse {
   course_code: string;
