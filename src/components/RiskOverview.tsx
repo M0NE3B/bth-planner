@@ -364,24 +364,6 @@ export default function RiskOverview({
                 </li>
               ))}</ul>
           )}
-
-          {metric === 'manual' && (manualAnalyses.length === 0
-            ? <p className="text-sm text-muted-foreground">Inga krav som kräver manuell kontroll.</p>
-            : <ul className="space-y-2">{manualAnalyses.map(a => (
-                <li key={a.course.course_code} className="rounded-md border p-3">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-mono text-sm font-semibold">{a.course.course_code}</span>
-                    <Badge variant="outline" className="text-xs">År {a.course.year}</Badge>
-                  </div>
-                  {nameOf(a.course.course_code) && <p className="text-sm text-muted-foreground mt-1">{nameOf(a.course.course_code)}</p>}
-                  <ul className="mt-2 space-y-1">
-                    {a.manualUnmet.map((r, i) => (
-                      <li key={i} className="text-sm text-muted-foreground">• {r.message}</li>
-                    ))}
-                  </ul>
-                </li>
-              ))}</ul>
-          )}
         </DialogContent>
       </Dialog>
     </Card>
