@@ -1174,12 +1174,13 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
       if (filterStatus !== 'all' && c.status !== filterStatus) return false;
       if (filterSubject !== 'all' && (subjectMap.get(c.course_code) || 'Okänt huvudområde') !== filterSubject) return false;
       if (filterUnmetOnly) {
-        const ps = getPrereqStatus(c.course_code);
-        if (!ps || ps.allMet) return false;
+        const results = getRequirementResults(c.course_code);
+        const hasUnmet = results.some(r => !r.fulfilled);
+        if (!hasUnmet) return false;
       }
       return true;
     });
-  }, [courses, filterSearch, filterYear, filterStatus, filterSubject, filterUnmetOnly, prereqMap, subjectMap]);
+  }, [courses, filterSearch, filterYear, filterStatus, filterSubject, filterUnmetOnly, prereqMap, subjectMap, requirementsMap, evalContext, courseNameMap]);
 
   const filteredGroupedByYear = useMemo(() => groupCoursesByYear(filteredCourses), [filteredCourses]);
   const availableYears = useMemo(
