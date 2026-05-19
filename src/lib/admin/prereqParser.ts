@@ -256,8 +256,8 @@ function parseFragment(fragment: string, idx: CourseIndex): ParseFragmentOut {
   }
 
   // ----- 8. Total HP avklarade (no course context) -----
-  const total = lower.match(/(\d+)\s*(?:avklarade\s+)?(?:h[öo]gskolepo[äa]ng|hp)(?:\s+totalt|\s+avklarade)?/);
-  if (total && !/\bi\b/.test(lower) && !/inom/.test(lower) && !codes.length) {
+  const total = lower.match(/(\d{1,4})[ \t]?(?:avklarade[ \t])?(?:h[öo]gskolepo[äa]ng|hp)(?:[ \t]totalt|[ \t]avklarade)?/);
+  if (total && !/\bi\b/.test(lower) && !lower.includes('inom') && codes.length === 0) {
     rules.push({
       requirement_type: 'completed_total_hp',
       required_hp: Number.parseInt(total[1], 10),
