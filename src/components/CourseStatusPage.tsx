@@ -677,9 +677,14 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
   const [newSubtaskHp, setNewSubtaskHp] = useState<Record<string, string>>({});
   const [newSubtaskType, setNewSubtaskType] = useState<Record<string, SubtaskType>>({});
 
+  // Elective candidates from program catalog (mandatory = false)
+  interface ElectiveOption { id: string; code: string; name: string; hp: number; year: number; subject: string | null }
+  const [electives, setElectives] = useState<ElectiveOption[]>([]);
+
   // Pending destructive confirmations
   const [pendingCourseDelete, setPendingCourseDelete] = useState<{ id: string; name: string } | null>(null);
   const [pendingSubtaskDelete, setPendingSubtaskDelete] = useState<Subtask | null>(null);
+
 
   // Display-only filters
   const [filterSearch, setFilterSearch] = useState('');
