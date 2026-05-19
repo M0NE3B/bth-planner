@@ -1451,7 +1451,7 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
                           </CourseInfoPopover>
                           <span className="text-muted-foreground">·</span>
                           <span className="text-foreground flex-1 min-w-0 truncate">{e.name}</span>
-                          <Badge variant="outline" className="text-xs">{e.hp} HP</Badge>
+                          <Badge variant="outline" className="text-xs">{formatHp(e.hp)} HP</Badge>
                           <Button size="sm" variant="outline" className="h-7 gap-1" onClick={() => addElective(e)}>
                             <Plus className="h-3 w-3" /> Lägg till
                           </Button>
