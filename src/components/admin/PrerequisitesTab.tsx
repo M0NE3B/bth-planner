@@ -13,7 +13,6 @@ import { Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { CatalogCourse, CatalogPrerequisite, RequirementType } from '@/lib/catalog';
-import NormalizePrereqsCard from './NormalizePrereqsCard';
 
 const TYPES: { value: RequirementType | 'all'; label: string }[] = [
   { value: 'all', label: 'Alla typer' },
@@ -79,7 +78,10 @@ export default function PrerequisitesTab() {
 
   return (
     <div className="space-y-4">
-      <NormalizePrereqsCard onApplied={() => void load()} />
+      <p className="text-xs text-muted-foreground">
+        Förkunskapskraven redigeras manuellt per kurs i fliken <strong>Kurskatalog</strong> – öppna en kurs och justera dess regler. Endast krav som rör programmets egna kurser visas för studenten; gymnasie- och grundbehörighet filtreras bort automatiskt.
+      </p>
+
 
       <div className="flex flex-col md:flex-row md:items-end gap-2">
         <div className="relative flex-1">
