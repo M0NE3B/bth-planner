@@ -178,7 +178,7 @@ function parseFragment(fragment: string, idx: CourseIndex): ParseFragmentOut {
     /genomg[åa]ng(?:en|na)\s+kurs(?:er)?\s*(?:om\s+minst\s+([\d,.]+)\s*hp\s+i\s+)?([^,;.]+)/,
   );
   if (att) {
-    const hp = att[1] ? parseFloat(att[1].replace(',', '.')) : null;
+    const hp = att[1] ? Number.parseFloat(att[1].replace(',', '.')) : null;
     // try each item in the list
     const phrases = splitList(att[2]);
     let matchedAny = false;
