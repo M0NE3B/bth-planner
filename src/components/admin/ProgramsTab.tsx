@@ -321,7 +321,7 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
     return { linkedCourses, mandatoryHp, optionalHp, totalLinkedHp, activeCount, inactiveCount, expectedOptional, hpStatus, hpMessage };
   }, [rows, totalHp]);
 
-  const addCourse = async (year: number, semester: string, courseId?: string) => {
+  const addCourse = async (year: number, courseId?: string) => {
     // Pick provided course, or first one in catalog (duplicates across placements are allowed).
     const chosen = courseId
       ? courses.find((c) => c.id === courseId)
@@ -331,9 +331,10 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
       await upsertProgramCourse({
         program_id: program.id,
         course_id: chosen.id,
-        year, semester,
+        year,
+        semester: null,
         mandatory: true,
-        sort_order: rows.filter((r) => r.year === year && r.semester === semester).length,
+        sort_order: rows.filter((r) => r.year === year).length,
       });
       void load();
     } catch (e) {
@@ -341,6 +342,7 @@ function ProgramDetail({ program, courses, onBack }: { program: CatalogProgram; 
       toast.error(`Kunde inte lägga till kurs${msg ? `: ${msg}` : ''}`);
     }
   };
+
 
   const updateRow = async (row: PCRow, patch: Partial<CatalogProgramCourse>) => {
     try {
