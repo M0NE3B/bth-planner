@@ -235,12 +235,8 @@ export default function RiskOverview({
     key: `o-${c.course_code}`,
     text: `${fmt(c.course_code, c.course_name)} – inte avklarad från år ${c.year}`,
   }));
-  const manualDisplay = manualAnalyses.slice(0, 12).map(a => ({
-    key: `mn-${a.course.course_code}`,
-    text: `${fmt(a.course.course_code, nameOf(a.course.course_code))} – ${a.manualUnmet[0]?.message ?? 'Manuellt krav'}`,
-  }));
 
-  const totalDetails = blockedList.length + missingDisplay.length + overdueDisplay.length + manualDisplay.length;
+  const totalDetails = blockedList.length + missingDisplay.length + overdueDisplay.length;
 
   return (
     <Card>
