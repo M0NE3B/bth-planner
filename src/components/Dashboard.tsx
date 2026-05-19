@@ -18,6 +18,8 @@ import RiskOverview from '@/components/RiskOverview';
 import EventFormFields from '@/components/EventFormFields';
 import { EVENT_TYPE_LABEL as TYPE_LABEL, EVENT_STATUS_LABEL as STATUS_LABEL, COURSE_STATUS_LABEL, parseHpInput } from '@/lib/events';
 import { useCatalogPrereqs } from '@/lib/useCatalogPrereqs';
+import { computeHpUnlockMap, computeUnlockBonus, type UnlockEntry } from '@/lib/hpUnlock';
+import { resolveSubject, type EvalContext } from '@/lib/prerequisites';
 
 interface DashboardProps {
   userId: string;
