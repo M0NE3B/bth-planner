@@ -32,6 +32,8 @@ export default function CourseCatalogTab() {
   const [subject, setSubject] = useState<string>('all');
   const [onlyMissingHp, setOnlyMissingHp] = useState(false);
   const [onlyMissingSubject, setOnlyMissingSubject] = useState(false);
+  const [prereqStatus, setPrereqStatus] = useState<'all' | 'structured' | 'manual' | 'none'>('all');
+  const [manualByCourse, setManualByCourse] = useState<Map<string, number>>(new Map());
   const [editing, setEditing] = useState<CatalogCourse | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [archiveTarget, setArchiveTarget] = useState<CourseRow | null>(null);
@@ -40,7 +42,7 @@ export default function CourseCatalogTab() {
     setLoading(true);
     const [coursesRes, prereqRes] = await Promise.all([
       supabase.from('courses_catalog').select('*').order('course_code'),
-      supabase.from('course_prerequisites').select('target_course_id'),
+      supabase.from('course_prerequisites').select('target_course_id, requirement_type, manual_review'),
     ]);
     if (coursesRes.error) {
       toast.error('Kunde inte ladda kurser');
@@ -48,10 +50,15 @@ export default function CourseCatalogTab() {
       return;
     }
     const counts = new Map<string, number>();
+    const manualCounts = new Map<string, number>();
     for (const r of prereqRes.data ?? []) {
-      const id = (r as { target_course_id: string }).target_course_id;
-      counts.set(id, (counts.get(id) ?? 0) + 1);
+      const row = r as { target_course_id: string; requirement_type: string; manual_review: boolean | null };
+      counts.set(row.target_course_id, (counts.get(row.target_course_id) ?? 0) + 1);
+      if (row.requirement_type === 'custom_text' || row.manual_review) {
+        manualCounts.set(row.target_course_id, (manualCounts.get(row.target_course_id) ?? 0) + 1);
+      }
     }
+    setManualByCourse(manualCounts);
     setCourses((coursesRes.data ?? []).map((c) => ({
       ...(c as unknown as CatalogCourse),
       prereq_count: counts.get((c as { id: string }).id) ?? 0,
