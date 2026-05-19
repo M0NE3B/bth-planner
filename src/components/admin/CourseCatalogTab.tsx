@@ -267,3 +267,12 @@ export default function CourseCatalogTab() {
     </div>
   );
 }
+
+function SummaryStat({ label, value, tone }: { label: string; value: number; tone?: 'warn' }) {
+  return (
+    <div className={`rounded-md border p-2 ${tone === 'warn' ? 'border-destructive/40 bg-destructive/5' : 'border-border bg-muted/30'}`}>
+      <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</p>
+      <p className="text-base font-semibold">{value}</p>
+    </div>
+  );
+}
