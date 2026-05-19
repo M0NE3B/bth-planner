@@ -373,12 +373,11 @@ function NewSubtaskForm({
             <SelectItem value="other">📌 Annat</SelectItem>
           </SelectContent>
         </Select>
-        <Input
-          type="date"
-          placeholder="Datum"
+        <DateInput
           value={date}
-          onChange={e => setDate(e.target.value)}
-          className="h-8 text-sm flex-1 min-w-[120px]"
+          onChange={setDate}
+          className="h-8 text-sm flex-1 min-w-[140px]"
+          placeholder="Datum"
         />
         <Input
           type="number"
