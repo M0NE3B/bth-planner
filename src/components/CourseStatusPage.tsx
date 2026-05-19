@@ -818,9 +818,10 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
     fetchData();
   }, [userId]);
 
-  // Load elective candidates for the student's program from the catalog
+  // Load elective candidates AND auto-seed any missing mandatory catalog courses
+  // for the student's program (so existing users get e.g. year 5 examensarbete).
   useEffect(() => {
-    if (!programName) { setElectives([]); return; }
+    if (!programName || loading) { return; }
     let cancelled = false;
     (async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -832,13 +833,43 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
       const pc = await sb.from('program_courses')
         .select('year, mandatory, course:courses_catalog(id, course_code, course_name, hp, subject_area)')
         .eq('program_id', programId)
-        .eq('mandatory', false)
         .order('year', { ascending: true });
       if (cancelled || !pc.data) { setElectives([]); return; }
 
       type Row = { year: number; mandatory: boolean; course: { id: string; course_code: string; course_name: string; hp: number; subject_area: string | null } | null };
-      const list: ElectiveOption[] = ((pc.data as unknown) as Row[])
-        .filter(r => r.course)
+      const allRows = ((pc.data as unknown) as Row[]).filter(r => r.course);
+
+      // Seed missing mandatory catalog courses into user_courses (idempotent)
+      const existingCodes = new Set(courses.map(c => c.course_code.toUpperCase()));
+      const seen = new Set<string>();
+      const missingMandatory = allRows.filter(r => {
+        if (!r.mandatory) return false;
+        const code = r.course!.course_code.toUpperCase();
+        if (existingCodes.has(code) || seen.has(code)) return false;
+        seen.add(code);
+        return true;
+      });
+      if (missingMandatory.length > 0) {
+        const inserts = missingMandatory.map(r => ({
+          user_id: userId,
+          course_code: r.course!.course_code,
+          course_name: r.course!.course_name,
+          hp: Number(r.course!.hp) || 0,
+          year: r.year,
+          status: 'not_started' as CourseStatus,
+          catalog_course_id: r.course!.id,
+        }));
+        const { data: inserted } = await sb.from('user_courses').insert(inserts).select();
+        if (inserted && !cancelled) {
+          const added = inserted as UserCourse[];
+          setCourses(prev => [...prev, ...added]);
+          added.forEach(c => initialStatusesRef.current.set(c.id, c.status));
+        }
+      }
+
+      if (cancelled) return;
+      const list: ElectiveOption[] = allRows
+        .filter(r => !r.mandatory)
         .map(r => ({
           id: r.course!.id,
           code: r.course!.course_code,
@@ -850,7 +881,8 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
       setElectives(list);
     })();
     return () => { cancelled = true; };
-  }, [programName]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [programName, userId, loading]);
 
   const electivesByYear = useMemo(() => {
     const userCodes = new Set(courses.map(c => c.course_code));
