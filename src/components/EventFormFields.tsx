@@ -98,11 +98,11 @@ export default function EventFormFields({
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label htmlFor={`${idPrefix}-date`}>Datum *</Label>
-          <Input id={`${idPrefix}-date`} type="date" value={fDate} onChange={e => setFDate(e.target.value)} required />
+          <DateInput id={`${idPrefix}-date`} value={fDate} onChange={setFDate} required />
         </div>
         <div>
           <Label htmlFor={`${idPrefix}-time`}>Tid</Label>
-          <Input id={`${idPrefix}-time`} type="time" value={fTime} onChange={e => setFTime(e.target.value)} />
+          <TimeInput id={`${idPrefix}-time`} value={fTime} onChange={setFTime} />
         </div>
       </div>
       <div>
