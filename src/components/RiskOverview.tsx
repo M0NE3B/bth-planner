@@ -400,7 +400,7 @@ export default function RiskOverview({
                   {nameOf(a.course.course_code) && <p className="text-sm text-muted-foreground mt-1">{nameOf(a.course.course_code)}</p>}
                   <ul className="mt-2 space-y-1">
                     {a.hardUnmet.map((r, i) => (
-                      <li key={i} className="text-sm">• {r.message}</li>
+                      <li key={`${r.message}-${i}`} className="text-sm">• {r.message}</li>
                     ))}
                   </ul>
                 </li>
