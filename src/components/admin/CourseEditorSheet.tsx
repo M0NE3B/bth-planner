@@ -230,6 +230,24 @@ export default function CourseEditorSheet({ open, course, allCourses, onClose, o
             <Switch checked={form.active} onCheckedChange={(v) => setForm({ ...form, active: v })} />
           </div>
 
+          {course && (
+            <div className="rounded-md border border-border p-3 space-y-1">
+              <p className="text-sm font-medium">Ingår i program</p>
+              {programs.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic">Inte länkad till något program.</p>
+              ) : (
+                <ul className="text-xs space-y-0.5">
+                  {programs.map((p, i) => (
+                    <li key={`${p.id}-${i}`} className="text-muted-foreground">
+                      <span className="text-foreground">{p.name}</span> — år {p.year}{p.semester ? `, ${p.semester}` : ''}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
+
           <Separator />
 
           <div>
