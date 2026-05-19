@@ -499,6 +499,7 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
     if (event.course_code) reasons.push(`Kopplad till kursen ${event.course_code}`);
     if (hp > 0) reasons.push(`${hp} HP gör momentet större`);
     if (blocking) reasons.push(blocking);
+    for (const r of getHpUnlockLabels(event.course_code).details) reasons.push(r);
     if (linkedSubtask && !linkedSubtask.completed) reasons.push('Kopplad till ett kursmoment som inte är avklarat');
     if (event.status && event.status !== 'complete') reasons.push('Inte avklarad ännu');
     return reasons;
