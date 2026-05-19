@@ -146,37 +146,13 @@ export default function ProgramsTab() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">Laddar…</TableCell></TableRow>
-            ) : programs.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">Inga program ännu.</TableCell></TableRow>
-            ) : programs.map((p) => (
-              <TableRow key={p.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setActiveProgram(p)}>
-                <TableCell className="font-medium">{p.name}</TableCell>
-                <TableCell>{p.course_count}</TableCell>
-                <TableCell>{p.obligatorisk_hp}</TableCell>
-                <TableCell>{p.total_hp ?? '–'}</TableCell>
-                <TableCell>
-                  {p.active ? <Badge variant="secondary">Aktiv</Badge> : <Badge variant="outline">Arkiverad</Badge>}
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                    <Button variant="ghost" size="sm" onClick={() => setArchiveTarget(p)}>
-                      {p.active ? 'Arkivera' : 'Återaktivera'}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => setDeleteTarget(p)}
-                      title="Ta bort program"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
+            {renderProgramRows({
+              loading,
+              programs,
+              onOpen: setActiveProgram,
+              onArchive: setArchiveTarget,
+              onDelete: setDeleteTarget,
+            })}
           </TableBody>
         </Table>
       </div>
