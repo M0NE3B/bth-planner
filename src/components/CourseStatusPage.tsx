@@ -21,6 +21,7 @@ import {
   resolveSubject, normalizeRequirements, evaluateCourseRequirements,
   type CourseRequirement, type RequirementResult,
 } from '@/lib/prerequisites';
+import { useCatalogPrereqs } from '@/lib/useCatalogPrereqs';
 
 const PREREQ_TOOLTIP =
   'Förkunskapskrav kan betyda olika saker: en kurs kan behöva vara avklarad, påbörjad/genomgången, eller kräva ett visst antal HP inom en kurs eller ett huvudområde.';
@@ -698,35 +699,66 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
       .slice(0, 50);
   }, [availableCourses, addSearch]);
 
+  const catalog = useCatalogPrereqs();
+
   const prereqMap = useMemo(() => buildPrereqMap(programTemplate), [programTemplate]);
-  const blocksMap = useMemo(() => buildBlocksMap(programTemplate), [programTemplate]);
-  const originalReqMap = useMemo(() => buildOriginalReqMap(programTemplate), [programTemplate]);
-  const courseNameMap = useMemo(
-    () => buildCourseNameMap(programTemplate, courses, allBthCourses),
-    [programTemplate, courses, allBthCourses],
-  );
+  const blocksMap = useMemo(() => {
+    // Catalog blocks take precedence; merge static template blocks for missing codes.
+    const m = new Map<string, string[]>();
+    for (const [code, list] of catalog.blocksByCode) m.set(code, [...list]);
+    const staticBlocks = buildBlocksMap(programTemplate);
+    for (const [code, list] of staticBlocks) {
+      if (m.has(code)) continue; // prefer catalog
+      m.set(code, list);
+    }
+    return m;
+  }, [programTemplate, catalog.blocksByCode]);
+
+  const originalReqMap = useMemo(() => {
+    const m = new Map<string, string>();
+    const staticMap = buildOriginalReqMap(programTemplate);
+    for (const [code, text] of staticMap) m.set(code, text);
+    // Catalog wins
+    for (const [code, text] of catalog.originalTextByCode) m.set(code, text);
+    return m;
+  }, [programTemplate, catalog.originalTextByCode]);
+
+  const courseNameMap = useMemo(() => {
+    const m = buildCourseNameMap(programTemplate, courses, allBthCourses);
+    for (const [code, name] of catalog.codeToName) {
+      if (!m.has(code)) m.set(code, name);
+    }
+    return m;
+  }, [programTemplate, courses, allBthCourses, catalog.codeToName]);
   const subjectMap = useMemo(() => {
     const m = new Map<string, string>();
     const add = (code: string, explicit?: string | null) => {
       if (m.has(code)) return;
       m.set(code, resolveSubject(code, explicit).primary);
     };
+    // Prefer catalog subjects
+    for (const [code, c] of catalog.courseByCode) add(c.course_code, c.subject_area);
     if (programTemplate) for (const c of programTemplate.courses) add(c.code, c.subject);
     for (const c of allBthCourses) add(c.code, c.subject);
     for (const c of courses) add(c.course_code);
     return m;
-  }, [programTemplate, allBthCourses, courses]);
+  }, [programTemplate, allBthCourses, courses, catalog.courseByCode]);
 
   const requirementsMap = useMemo(() => {
     const m = new Map<string, CourseRequirement[]>();
+    // Static fallback first
     if (programTemplate) {
       for (const c of programTemplate.courses) {
         const reqs = normalizeRequirements(c);
         if (reqs.length) m.set(c.code, reqs);
       }
     }
+    // Catalog overrides (preferred when available)
+    for (const [code, reqs] of catalog.requirementsByCode) {
+      if (reqs.length > 0) m.set(code, reqs);
+    }
     return m;
-  }, [programTemplate]);
+  }, [programTemplate, catalog.requirementsByCode]);
 
   const evalContext = useMemo(() => {
     const courseIdToCode = new Map(courses.map(c => [c.id, c.course_code]));
