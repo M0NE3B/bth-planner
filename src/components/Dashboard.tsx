@@ -602,7 +602,7 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
       </div>
 
       {/* Fokus näst */}
-      <Card>
+      <Card id="focus-next" className="scroll-mt-24">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-3">
             <CardTitle className="flex items-center gap-2 font-heading">
