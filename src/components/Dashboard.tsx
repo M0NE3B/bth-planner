@@ -159,7 +159,11 @@ export default function Dashboard({ userId, totalProgramHp, startYear }: Dashboa
     partly: courses.filter(c => c.status === 'partly').length,
   };
 
-  const years = [...new Set(courses.map(c => c.year))].sort((a, b) => a - b);
+  // Show all program years (1..N) so a 5-year program always shows År 1–5
+  const programYears = totalProgramHp ? Math.max(1, Math.round(totalProgramHp / 60)) : 0;
+  const yearsFromCourses = [...new Set(courses.map(c => c.year))];
+  const maxYear = Math.max(programYears, ...yearsFromCourses, 1);
+  const years = Array.from({ length: maxYear }, (_, i) => i + 1);
   const hpByYear = years.map(year => {
     const yearCourses = courses.filter(c => c.year === year);
     return {

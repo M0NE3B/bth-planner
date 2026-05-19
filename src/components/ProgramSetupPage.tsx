@@ -132,9 +132,6 @@ export default function ProgramSetupPage({ userId, onComplete }: ProgramSetupPag
         .eq('user_id', userId);
       if (profileError) throw profileError;
 
-      const yearsStudied = currentYear - startYearNum;
-      const maxYear = Math.max(yearsStudied, 1) + 1;
-
       let coursesToInsert: Array<{
         user_id: string;
         course_code: string;
@@ -148,9 +145,10 @@ export default function ProgramSetupPage({ userId, onComplete }: ProgramSetupPag
       if (selectedOption.source === 'catalog' && selectedOption.catalogId) {
         try {
           const rows = await fetchProgramCourses(selectedOption.catalogId);
-          // Only seed mandatory courses by default; optional/elective pool is opt-in.
+          // Seed all mandatory courses for the entire program (all years).
+          // Electives are opt-in via the elective list per year.
           coursesToInsert = rows
-            .filter(r => r.mandatory && r.year <= maxYear && r.course)
+            .filter(r => r.mandatory && r.course)
             .map((r: CatalogProgramCourse & { course: CatalogCourse }) => ({
               user_id: userId,
               course_code: r.course.course_code,
@@ -165,21 +163,19 @@ export default function ProgramSetupPage({ userId, onComplete }: ProgramSetupPag
         }
       }
 
-      // Fallback: static template by name
+      // Fallback: static template by name (all years)
       if (coursesToInsert.length === 0) {
         const tmpl = bthPrograms.find(p => p.name === selectedOption.name)
           ?? (selectedOption.staticIndex != null ? bthPrograms[selectedOption.staticIndex] : null);
         if (tmpl) {
-          coursesToInsert = tmpl.courses
-            .filter(c => c.year <= maxYear)
-            .map(c => ({
-              user_id: userId,
-              course_code: c.code,
-              course_name: c.name,
-              year: c.year,
-              hp: c.hp,
-              status: 'not_started' as const,
-            }));
+          coursesToInsert = tmpl.courses.map(c => ({
+            user_id: userId,
+            course_code: c.code,
+            course_name: c.name,
+            year: c.year,
+            hp: c.hp,
+            status: 'not_started' as const,
+          }));
         }
       }
 

@@ -1124,7 +1124,28 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
     );
   }
 
-  const sortedYearEntries = Object.entries(filteredGroupedByYear).sort(([a], [b]) => Number(a) - Number(b));
+  // Compute program length so we can render empty year sections (År 1..N).
+  const templateMaxYear = programTemplate
+    ? Math.max(0, ...programTemplate.courses.map(c => c.year))
+    : 0;
+  const electiveMaxYear = electives.length > 0
+    ? Math.max(0, ...electives.map(e => e.year))
+    : 0;
+  const userMaxYear = courses.length > 0
+    ? Math.max(0, ...courses.map(c => c.year))
+    : 0;
+  const programYearCount = Math.max(templateMaxYear, electiveMaxYear, userMaxYear, 1);
+  const allProgramYears = Array.from({ length: programYearCount }, (_, i) => i + 1);
+
+  // Combine filtered courses with empty year buckets so every program year renders.
+  const yearEntries: Array<[string, UserCourse[]]> = allProgramYears.map(y => [
+    String(y),
+    filteredGroupedByYear[y] || [],
+  ]);
+  // Honour year filter for the "show only this year" case
+  const sortedYearEntries = filterYear === 'all'
+    ? yearEntries
+    : yearEntries.filter(([y]) => y === filterYear);
 
   return (
     <div className="min-h-screen bg-background">

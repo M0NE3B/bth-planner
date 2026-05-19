@@ -22,6 +22,7 @@ export default function Index() {
   const [loading, setLoading] = useState(true);
   const [setupComplete, setSetupComplete] = useState<boolean | null>(null);
   const [profileData, setProfileData] = useState<{ program_name: string | null; start_year: number | null } | null>(null);
+  const [catalogProgramHp, setCatalogProgramHp] = useState<number | null>(null);
   const [authView, setAuthView] = useState<null | 'login' | 'signup'>(null);
   const [showIntro, setShowIntro] = useState(false);
 
@@ -67,6 +68,19 @@ export default function Index() {
     setSetupComplete(data?.setup_complete ?? false);
     setProfileData(data ? { program_name: data.program_name, start_year: data.start_year } : null);
     setLoading(false);
+
+    // Look up total HP from catalog (covers programs that don't exist as static templates)
+    if (data?.program_name) {
+      const { data: prog } = await supabase
+        .from('programs_catalog')
+        .select('total_hp')
+        .eq('name', data.program_name)
+        .eq('active', true)
+        .maybeSingle();
+      setCatalogProgramHp(prog?.total_hp != null ? Number(prog.total_hp) : null);
+    } else {
+      setCatalogProgramHp(null);
+    }
   };
 
   const handleLogout = async () => {
@@ -110,9 +124,10 @@ export default function Index() {
     );
   }
 
-  // Compute total HP from program template
+  // Compute total HP — prefer catalog (covers all imported programs), fall back to static template
   const programTemplate = bthPrograms.find(p => p.name === profileData?.program_name);
-  const totalProgramHp = programTemplate ? programTemplate.courses.reduce((s, c) => s + c.hp, 0) : undefined;
+  const staticHp = programTemplate ? programTemplate.courses.reduce((s, c) => s + c.hp, 0) : undefined;
+  const totalProgramHp = catalogProgramHp ?? staticHp;
   const pName = profileData?.program_name || '';
 
   // Main app
