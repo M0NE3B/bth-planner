@@ -75,7 +75,7 @@ export default function SettingsPage({ userId, email, programName, startYear, on
       supabase.from('course_subtasks').delete().eq('user_id', userId),
       supabase.from('study_events').delete().eq('user_id', userId),
       supabase.from('user_courses').delete().eq('user_id', userId),
-      supabase.from('profiles').update({ setup_complete: false, status_onboarding_complete: false, program_name: null, start_year: null }).eq('user_id', userId),
+      supabase.from('profiles').update({ setup_complete: false, status_onboarding_complete: false, onboarding_checklist_dismissed: false, program_name: null, start_year: null }).eq('user_id', userId),
     ]);
     setResetting(false);
     const err = ops.find(o => o.error)?.error;
