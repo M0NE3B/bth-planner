@@ -21,6 +21,7 @@ import { useCatalogPrereqs } from '@/lib/useCatalogPrereqs';
 import { computeHpUnlockMap, computeUnlockBonus, type UnlockEntry } from '@/lib/hpUnlock';
 import { resolveSubject, type EvalContext } from '@/lib/prerequisites';
 import { formatHp } from '@/lib/utils';
+import OnboardingChecklist from '@/components/OnboardingChecklist';
 
 interface DashboardProps {
   userId: string;
