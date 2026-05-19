@@ -1335,7 +1335,7 @@ export default function CourseStatusPage({ userId, programName }: CourseStatusPa
                     </div>
                   </div>
                 )}
-                {yearElectives.length > 0 && (
+                {yearElectives.length > 0 && missingHp > 0 && (
                   <div className="mb-6 -mt-1 rounded-md border border-dashed border-border p-3 bg-muted/20">
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
                       Valbara kurser år {year}
