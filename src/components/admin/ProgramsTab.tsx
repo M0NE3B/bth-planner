@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -54,7 +54,7 @@ function renderProgramRows({ loading, programs, onOpen, onArchive, onDelete }: R
   }
   return programs.map((p) => {
     const open = () => onOpen(p);
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLTableRowElement>) => {
+    const handleKeyDown = (e: KeyboardEvent<HTMLTableRowElement>) => {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
         open();
